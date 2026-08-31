@@ -3,8 +3,8 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="A minimal personal homepage for notes, essays, and research articles.">
-  <title>Your Name — Notes & Research</title>
+  <meta name="description" content="Personal homepage of Gurpreet Singh Laller — software, experiments, and technical notes.">
+  <title>Gurpreet Singh Laller — Notes & Projects</title>
 
   <style>
     @font-face{
@@ -115,15 +115,6 @@
       padding:54px 0 44px;
     }
 
-    .eyebrow{
-      margin:0 0 12px;
-      color:var(--green);
-      font-size:11.5px;
-      font-weight:700;
-      letter-spacing:.08em;
-      text-transform:uppercase;
-    }
-
     h1{
       margin:0 0 18px;
       max-width:24ch;
@@ -225,58 +216,7 @@
       margin:0;
       color:#52525b;
     }
-
-    .entry-footer{
-      display:flex;
-      flex-wrap:wrap;
-      gap:7px 14px;
-      margin-top:12px;
-      color:var(--faint);
-      font-size:11.5px;
-    }
-
-    .entry-footer .read{
-      color:var(--ink);
-    }
-
-    .tag{
-      color:var(--blue);
-    }
-
-    /* ---------- small note / about ---------- */
-
-    .note-grid{
-      display:grid;
-      grid-template-columns:1fr 1fr;
-      gap:30px;
-      padding-top:20px;
-    }
-
-    .note-grid h3{
-      margin:0 0 8px;
-      font-size:12.5px;
-    }
-
-    .note-grid p{
-      margin:0;
-      color:var(--dim);
-      font-size:12.5px;
-    }
-
-    .mini-ascii{
-      margin:2px 0 0;
-      color:var(--faint);
-      font-size:11.5px;
-      line-height:1.45;
-      white-space:pre;
-      overflow:auto;
-    }
-
-    .mini-ascii .g{ color:var(--green); }
-    .mini-ascii .b{ color:var(--blue); }
-    .mini-ascii .y{ color:var(--amber); }
-
-    /* ---------- footer ---------- */
+/* ---------- footer ---------- */
 
     footer{
       display:flex;
@@ -338,10 +278,6 @@
         display:inline;
       }
 
-      .note-grid{
-        grid-template-columns:1fr;
-      }
-
       footer{
         flex-direction:column;
         gap:6px;
@@ -365,45 +301,35 @@
 
     <header class="site-header">
       <div>
-        <strong>PERSONAL INDEX</strong><br>
-        Notes / Essays / Experiments
+        <strong>LALLER</strong><br>
+        /Notes
       </div>
 
       <div class="right">
-        Your Name<br>
-        Independent Research
-        <nav class="nav" aria-label="Primary navigation">
-          <a href="#articles">articles</a>
-          <a href="#about">about</a>
-          <a href="mailto:you@example.com">email</a>
-        </nav>
+        
       </div>
     </header>
 
     <section class="intro" aria-labelledby="intro-title">
-      <p class="eyebrow">Research notebook / public archive</p>
-
-      <h1 id="intro-title">Notes on models, systems, and things worth testing.</h1>
+<h1 id="intro-title">Software, language models, and experiments that seem worth trying.</h1>
 
       <p class="lede">
-        A small collection of research notes, experiments, and longer essays.
-        The emphasis is on concrete questions, reproducible observations, and
-        unfinished ideas that are still useful enough to publish.
+        Notes from software work and experiments around language models:
+        mixture-of-experts routing, memory and summary tokens, hidden-state
+        visualisation, model behaviour, and the occasional unrelated idea.
+        Mostly an attempt to turn interesting questions into small things that can be tested.
       </p>
 
       <p class="links">
-        <a href="#articles">Read the latest</a>
+        <a href="https://twitter.com/gslaller">@gslaller</a>
         <span>·</span>
-        <a href="#about">About this site</a>
-        <span>·</span>
-        <a href="https://github.com/">GitHub</a>
+        <a href="#articles">notes</a>
       </p>
     </section>
 
     <section class="section" id="articles" aria-labelledby="articles-title">
       <div class="section-head">
-        <h2 id="articles-title">Recent articles</h2>
-        <span class="section-note">reverse chronological</span>
+        <h2 id="articles-title">Notes & experiments</h2>
       </div>
 
       <div class="article-list">
@@ -427,12 +353,6 @@
               sparse mixture-of-experts model, and whether that locality is stable across
               layers, prompts, and decoding regimes.
             </p>
-            <div class="entry-footer">
-              <span class="tag">#moe</span>
-              <span class="tag">#routing</span>
-              <span>8 min</span>
-              <a class="read" href="articles/temporal-locality.html">[ read → ]</a>
-            </div>
           </div>
         </article>
 
@@ -450,12 +370,6 @@
               setup, the information bottleneck, and a few measurements that make the
               experiment informative.
             </p>
-            <div class="entry-footer">
-              <span class="tag">#memory</span>
-              <span class="tag">#transformers</span>
-              <span>11 min</span>
-              <a class="read" href="articles/memory-tokens.html">[ read → ]</a>
-            </div>
           </div>
         </article>
 
@@ -472,12 +386,6 @@
               and looking for structure that survives changes in prompt wording,
               generation length, and model scale.
             </p>
-            <div class="entry-footer">
-              <span class="tag">#representation</span>
-              <span class="tag">#umap</span>
-              <span>6 min</span>
-              <a class="read" href="articles/hidden-state-atlas.html">[ read → ]</a>
-            </div>
           </div>
         </article>
 
@@ -494,12 +402,6 @@
               argument for building reduced experiments that isolate one mechanism at a
               time before spending compute on scale.
             </p>
-            <div class="entry-footer">
-              <span class="tag">#method</span>
-              <span class="tag">#research</span>
-              <span>5 min</span>
-              <a class="read" href="articles/small-experiments.html">[ read → ]</a>
-            </div>
           </div>
         </article>
 
@@ -516,56 +418,14 @@
               by temperature and sampling can be represented by a compact learned
               direction instead.
             </p>
-            <div class="entry-footer">
-              <span class="tag">#sampling</span>
-              <span class="tag">#latent</span>
-              <span>4 min</span>
-              <a class="read" href="articles/notes-on-sampling.html">[ read → ]</a>
-            </div>
           </div>
         </article>
 
       </div>
     </section>
-
-    <section class="section" id="about" aria-labelledby="about-title">
-      <div class="section-head">
-        <h2 id="about-title">About</h2>
-        <span class="section-note">short version</span>
-      </div>
-
-      <div class="note-grid">
-        <div>
-          <h3>Scope</h3>
-          <p>
-            This site is intentionally small. Articles are plain HTML, links are stable,
-            and individual pages can reuse the same stylesheet without a build system.
-          </p>
-        </div>
-
-        <div>
-          <h3>Working style</h3>
-          <p>
-            Notes may be incomplete. Results should be reproducible where possible, and
-            uncertainty should be stated rather than polished away.
-          </p>
-        </div>
-      </div>
-
-      <pre class="mini-ascii" aria-label="Site structure">
-<span class="g">home</span>/
-├── <span class="b">articles</span>/
-│   ├── temporal-locality.html
-│   ├── memory-tokens.html
-│   └── hidden-state-atlas.html
-├── about.html
-└── style.css   <span class="y"># optional later extraction</span>
-      </pre>
-    </section>
-
-    <footer>
-      <div><span class="mark">■</span> Your Name · notes & research</div>
-      <div>plain HTML · no framework · no keyboard actions</div>
+<footer>
+      <div><span class="mark">■</span> Gurpreet Singh Laller</div>
+      <div><a href="https://twitter.com/gslaller">@gslaller</a></div>
     </footer>
 
   </main>
