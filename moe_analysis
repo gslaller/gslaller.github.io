@@ -1,0 +1,1751 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="icon"
+    href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>📎</text></svg>">
+  <meta name="description"
+    content="Which experts fire, and how sure is the router? Token-by-layer routing maps for Qwen3.5 / Qwen3.6 MoE models.">
+  <title>MoE Routing Atlas</title>
+  <style>
+    @font-face {
+      font-family: 'JetBrains Mono';
+      font-style: normal;
+      font-weight: 400;
+      font-display: swap;
+      src: url('https://cdn.jsdelivr.net/gh/JetBrains/JetBrainsMono@2.304/fonts/webfonts/JetBrainsMono-Regular.woff2') format('woff2');
+    }
+
+    @font-face {
+      font-family: 'JetBrains Mono';
+      font-style: normal;
+      font-weight: 700;
+      font-display: swap;
+      src: url('https://cdn.jsdelivr.net/gh/JetBrains/JetBrainsMono@2.304/fonts/webfonts/JetBrainsMono-Bold.woff2') format('woff2');
+    }
+
+    :root {
+      --ink: #18181b;
+      --dim: #66666e;
+      --faint: #a1a1aa;
+      --line: #e4e4e7;
+      --panel: #fcfcfb;
+      --green: #15803d;
+      --blue: #1d4ed8;
+      --amber: #b45309;
+      --rust: #b91c1c;
+      /* data colours (validated reference palette): model series + sequential blue ramp */
+      --series-1: #2a78d6;
+      --series-2: #eb6834;
+      --grid: #efefef;
+    }
+
+    * {
+      box-sizing: border-box
+    }
+
+    html {
+      scroll-behavior: smooth
+    }
+
+    body {
+      margin: 0;
+      background: #fff;
+      color: var(--ink);
+      font-family: 'JetBrains Mono', Menlo, Consolas, 'DejaVu Sans Mono', monospace;
+      font-size: 13.5px;
+      line-height: 1.75
+    }
+
+    ::selection {
+      background: #dcfce7;
+      color: #14532d
+    }
+
+    a {
+      color: inherit;
+      text-decoration: underline;
+      text-decoration-color: var(--faint);
+      text-underline-offset: 3px
+    }
+
+    a:hover {
+      color: var(--rust);
+      text-decoration-color: var(--rust)
+    }
+
+    .wrap {
+      max-width: 1180px;
+      margin: 0 auto;
+      padding: 48px 20px 96px
+    }
+
+    .site-header {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 20px;
+      padding-bottom: 18px;
+      border-bottom: 1px solid var(--line);
+      font-size: 12px
+    }
+
+    .site-header strong {
+      font-weight: 700
+    }
+
+    .site-header .right {
+      text-align: right;
+      color: var(--dim)
+    }
+
+    .intro {
+      padding: 44px 0 30px
+    }
+
+    h1 {
+      margin: 0 0 14px;
+      max-width: 30ch;
+      font-size: 25px;
+      line-height: 1.35;
+      letter-spacing: -.03em
+    }
+
+    .lede {
+      max-width: 92ch;
+      margin: 0;
+      color: #3f3f46;
+      font-size: 14px
+    }
+
+    .section {
+      padding-top: 24px;
+      border-top: 1px solid var(--line);
+      margin-top: 26px
+    }
+
+    .section-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      gap: 20px;
+      margin-bottom: 6px;
+      flex-wrap: wrap
+    }
+
+    h2 {
+      margin: 0;
+      font-size: 14px;
+      letter-spacing: .02em
+    }
+
+    h2 .num {
+      color: var(--green);
+      margin-right: 10px
+    }
+
+    .section-note {
+      color: var(--faint);
+      font-size: 11.5px
+    }
+
+    .explain {
+      color: #52525b;
+      max-width: 100ch;
+      margin: 2px 0 14px;
+      font-size: 12.5px
+    }
+
+    /* ---------- controls ---------- */
+    .controls {
+      position: sticky;
+      top: 0;
+      z-index: 20;
+      background: rgba(255, 255, 255, .96);
+      backdrop-filter: blur(4px);
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px 22px;
+      align-items: flex-end;
+      padding: 12px 0 12px;
+      border-bottom: 1px solid var(--line)
+    }
+
+    .controls-static {
+      position: static;
+      background: none;
+      backdrop-filter: none;
+      padding-top: 10px;
+      border-bottom: 0
+    }
+
+    .ctl {
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+      font-size: 11px;
+      color: var(--dim);
+      text-transform: uppercase;
+      letter-spacing: .05em
+    }
+
+    select,
+    button {
+      font: inherit;
+      font-size: 12.5px;
+      color: var(--ink);
+      text-transform: none;
+      letter-spacing: 0
+    }
+
+    select {
+      border: 1px solid var(--line);
+      background: #fff;
+      padding: 5px 8px;
+      border-radius: 4px;
+      max-width: 440px
+    }
+
+    .seg {
+      display: inline-flex;
+      border: 1px solid var(--line);
+      border-radius: 4px;
+      overflow: hidden
+    }
+
+    .seg button {
+      border: 0;
+      background: #fff;
+      padding: 5px 11px;
+      cursor: pointer;
+      border-right: 1px solid var(--line)
+    }
+
+    .seg button:last-child {
+      border-right: 0
+    }
+
+    .seg button[aria-pressed="true"] {
+      background: var(--ink);
+      color: #fff
+    }
+
+    .seg button:hover:not([aria-pressed="true"]) {
+      background: #f4f4f5
+    }
+
+    .seg .sw {
+      display: inline-block;
+      width: 8px;
+      height: 8px;
+      border-radius: 2px;
+      margin-right: 6px;
+      vertical-align: 1px
+    }
+
+    /* ---------- prompt card + tiles ---------- */
+    .prompt-card {
+      display: grid;
+      grid-template-columns: 12ch 1fr;
+      gap: 24px;
+      padding: 18px 0 4px
+    }
+
+    .meta {
+      color: var(--dim);
+      font-size: 11.5px;
+      line-height: 1.65
+    }
+
+    .meta .type {
+      display: block;
+      color: var(--green);
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .05em
+    }
+
+    .prompt-text {
+      margin: 0;
+      color: #3f3f46;
+      white-space: pre-wrap;
+      max-height: 9.5em;
+      overflow: auto;
+      font-size: 12.5px;
+      border-left: 2px solid var(--line);
+      padding-left: 14px
+    }
+
+    .tiles {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 0;
+      margin-top: 18px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      overflow: hidden
+    }
+
+    .tile {
+      padding: 12px 14px;
+      border-right: 1px solid var(--line)
+    }
+
+    .tile:last-child {
+      border-right: 0
+    }
+
+    .tile .k {
+      font-size: 10.5px;
+      color: var(--dim);
+      text-transform: uppercase;
+      letter-spacing: .05em
+    }
+
+    .tile .v {
+      font-size: 20px;
+      font-weight: 700;
+      letter-spacing: -.02em;
+      line-height: 1.3
+    }
+
+    .tile .s {
+      font-size: 11px;
+      color: var(--faint)
+    }
+
+    /* ---------- heatmap ---------- */
+    .map-wrap {
+      display: grid;
+      grid-template-columns: 44px 1fr;
+      gap: 6px
+    }
+
+    .yaxis {
+      position: relative;
+      font-size: 10px;
+      color: var(--dim)
+    }
+
+    .yaxis span {
+      position: absolute;
+      right: 4px;
+      transform: translateY(-50%);
+      white-space: nowrap
+    }
+
+    .yaxis .attn {
+      color: var(--amber);
+      font-weight: 700
+    }
+
+    .scroller {
+      overflow-x: auto;
+      overflow-y: hidden;
+      position: relative;
+      border: 1px solid var(--line);
+      border-radius: 4px;
+      background: var(--panel)
+    }
+
+    .scroller canvas {
+      display: block;
+      image-rendering: pixelated;
+      cursor: crosshair
+    }
+
+    .segbar {
+      position: relative;
+      height: 18px;
+      font-size: 10px;
+      color: var(--dim)
+    }
+
+    .segbar div {
+      position: absolute;
+      top: 0;
+      height: 18px;
+      border-left: 1px solid var(--faint);
+      padding-left: 5px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-transform: uppercase;
+      letter-spacing: .05em
+    }
+
+    .legend {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 11px;
+      color: var(--dim);
+      margin-top: 10px;
+      flex-wrap: wrap
+    }
+
+    .ramp {
+      width: 180px;
+      height: 10px;
+      border-radius: 2px;
+      border: 1px solid var(--line)
+    }
+
+    .zoom {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      margin-left: auto
+    }
+
+    .zoom input {
+      accent-color: var(--ink)
+    }
+
+    /* help (!) buttons + popover */
+    .help {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 15px;
+      height: 15px;
+      margin-left: 5px;
+      border-radius: 50%;
+      border: 1px solid var(--faint);
+      background: #fff;
+      color: var(--dim);
+      font: 700 10px/1 'JetBrains Mono', monospace;
+      cursor: pointer;
+      padding: 0;
+      vertical-align: 1px
+    }
+
+    .help:hover,
+    .help[aria-expanded="true"] {
+      border-color: var(--ink);
+      color: #fff;
+      background: var(--ink)
+    }
+
+    .ctl .lab {
+      display: flex;
+      align-items: center
+    }
+
+    .pop {
+      position: fixed;
+      z-index: 60;
+      background: #fff;
+      border: 1px solid var(--ink);
+      border-radius: 6px;
+      padding: 12px 14px;
+      max-width: 460px;
+      font-size: 12px;
+      line-height: 1.6;
+      color: var(--ink);
+      text-transform: none;
+      letter-spacing: 0;
+      box-shadow: 0 8px 28px rgba(0, 0, 0, .12)
+    }
+
+    .pop h4 {
+      margin: 0 0 6px;
+      font-size: 12.5px
+    }
+
+    .pop dl {
+      margin: 6px 0 0;
+      display: grid;
+      grid-template-columns: auto 1fr;
+      gap: 4px 12px
+    }
+
+    .pop dt {
+      font-weight: 700;
+      white-space: nowrap
+    }
+
+    .pop dd {
+      margin: 0;
+      color: #3f3f46
+    }
+
+    .pop p {
+      margin: 4px 0
+    }
+
+    .tile {
+      cursor: help
+    }
+
+    .tile:hover {
+      background: var(--panel)
+    }
+
+    /* section 01 breaks out of the column to the full viewport width */
+    #sec-map {
+      width: calc(100vw - var(--sbw, 0px));
+      margin-left: calc(50% - 50vw + var(--sbw, 0px) / 2);
+      padding-left: 20px;
+      padding-right: 20px
+    }
+
+    #sec-map:fullscreen {
+      background: #fff;
+      padding: 18px 22px;
+      overflow: auto;
+      margin: 0;
+      width: 100vw;
+      border: 0
+    }
+
+    #sec-map:fullscreen .grid-vp {
+      height: calc(100vh - 190px)
+    }
+
+    .fs-btn {
+      border: 1px solid var(--line);
+      background: #fff;
+      border-radius: 4px;
+      padding: 5px 10px;
+      cursor: pointer;
+      font: inherit;
+      font-size: 12px
+    }
+
+    .fs-btn:hover {
+      border-color: var(--ink)
+    }
+
+    .seg-sm button {
+      padding: 2px 9px;
+      font-size: 11.5px
+    }
+
+    .grid-ctl {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px 22px;
+      align-items: center;
+      font-size: 11.5px;
+      color: var(--dim);
+      margin: 0 0 10px
+    }
+
+    .grid-ctl label {
+      display: flex;
+      gap: 8px;
+      align-items: center
+    }
+
+    .grid-ctl input[type=range] {
+      accent-color: var(--ink);
+      width: 110px
+    }
+
+    .grid-vp {
+      position: relative;
+      overflow: auto;
+      height: 72vh;
+      min-height: 360px;
+      border: 1px solid var(--line);
+      border-radius: 4px;
+      background: #fff
+    }
+
+    .grid-vp canvas {
+      position: absolute;
+      left: 0;
+      top: 0;
+      cursor: crosshair
+    }
+
+    .sw-cell {
+      display: inline-block;
+      width: 10px;
+      height: 10px;
+      border-radius: 2px;
+      vertical-align: -1px;
+      border: 1px solid var(--line)
+    }
+
+    /* ---------- token text ---------- */
+    .text-view {
+      border: 1px solid var(--line);
+      border-radius: 4px;
+      padding: 14px 16px;
+      max-height: 420px;
+      overflow: auto;
+      white-space: pre-wrap;
+      word-break: break-word;
+      font-size: 12.5px;
+      line-height: 1.9;
+      background: #fff
+    }
+
+    /* sections 02 and 03 are click targets, not text to copy: no accidental selection */
+    .text-view,
+    .rank-grid,
+    .detail-head,
+    .grid-scroll {
+      user-select: none;
+      -webkit-user-select: none
+    }
+
+    .text-view .tk {
+      cursor: pointer;
+      border-radius: 2px
+    }
+
+    .text-view .tk:hover {
+      outline: 1px solid var(--ink)
+    }
+
+    .text-view .tk.sel {
+      outline: 2px solid var(--rust);
+      outline-offset: 1px
+    }
+
+    .text-view .mark {
+      display: block;
+      margin: 10px 0 4px;
+      font-size: 10.5px;
+      color: var(--green);
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .06em;
+      user-select: none
+    }
+
+    .text-view .mark:first-child {
+      margin-top: 0
+    }
+
+    /* ---------- token detail ---------- */
+    .detail-head {
+      display: flex;
+      gap: 18px;
+      flex-wrap: wrap;
+      align-items: baseline;
+      margin-bottom: 10px;
+      font-size: 12.5px
+    }
+
+    .detail-head code {
+      background: #f4f4f5;
+      padding: 1px 6px;
+      border-radius: 3px
+    }
+
+    .nav-btn {
+      border: 1px solid var(--line);
+      background: #fff;
+      border-radius: 4px;
+      padding: 2px 9px;
+      cursor: pointer
+    }
+
+    .nav-btn:hover {
+      border-color: var(--ink)
+    }
+
+    .rank-grid {
+      border-collapse: separate;
+      border-spacing: 2px;
+      font-size: 10.5px
+    }
+
+    .rank-grid th {
+      font-weight: 400;
+      color: var(--dim);
+      padding: 0 4px;
+      text-align: right
+    }
+
+    .rank-grid thead th {
+      text-align: center
+    }
+
+    .rank-grid td {
+      width: 36px;
+      height: 17px;
+      text-align: center;
+      border-radius: 2px;
+      font-variant-numeric: tabular-nums
+    }
+
+    .rank-grid td.cut {
+      box-shadow: inset 2px 0 0 var(--rust)
+    }
+
+    .rank-grid td.num {
+      width: auto;
+      padding: 0 6px;
+      color: var(--ink);
+      text-align: right;
+      background: none
+    }
+
+    .grid-scroll {
+      overflow-x: auto
+    }
+
+    /* ---------- charts ---------- */
+    .charts {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(420px, 1fr));
+      gap: 22px 28px
+    }
+
+    .chart h3 {
+      margin: 0 0 2px;
+      font-size: 12.5px
+    }
+
+    .chart .sub {
+      color: var(--faint);
+      font-size: 11px;
+      margin-bottom: 6px
+    }
+
+    .chart svg {
+      display: block;
+      width: 100%;
+      height: auto;
+      overflow: visible
+    }
+
+    .chart .axis text {
+      font-size: 10px;
+      fill: var(--dim);
+      font-family: inherit
+    }
+
+    .chart .gridline {
+      stroke: var(--grid);
+      stroke-width: 1
+    }
+
+    .chart .baseline {
+      stroke: var(--faint);
+      stroke-width: 1
+    }
+
+    .series-legend {
+      display: flex;
+      gap: 16px;
+      font-size: 11.5px;
+      color: var(--dim);
+      margin: 0 0 14px;
+      flex-wrap: wrap
+    }
+
+    .series-legend i {
+      display: inline-block;
+      width: 14px;
+      height: 2px;
+      vertical-align: 4px;
+      margin-right: 6px;
+      border-radius: 1px
+    }
+
+    .tooltip {
+      position: fixed;
+      z-index: 50;
+      pointer-events: none;
+      background: #fff;
+      border: 1px solid var(--ink);
+      border-radius: 4px;
+      padding: 8px 10px;
+      font-size: 11.5px;
+      line-height: 1.55;
+      max-width: 340px;
+      box-shadow: 0 4px 18px rgba(0, 0, 0, .08);
+      display: none
+    }
+
+    .tooltip b {
+      font-weight: 700
+    }
+
+    .tooltip .tt-tok {
+      background: #f4f4f5;
+      padding: 0 4px;
+      border-radius: 2px;
+      white-space: pre
+    }
+
+    .tooltip .row {
+      display: flex;
+      justify-content: space-between;
+      gap: 14px
+    }
+
+    .tooltip .muted {
+      color: var(--dim)
+    }
+
+    .empty {
+      padding: 40px 0;
+      color: var(--dim)
+    }
+
+    footer {
+      display: flex;
+      justify-content: space-between;
+      gap: 20px;
+      margin-top: 56px;
+      padding-top: 17px;
+      border-top: 1px solid var(--ink);
+      color: var(--dim);
+      font-size: 11.5px
+    }
+
+    footer .mark {
+      color: var(--green);
+      font-weight: 700
+    }
+
+    @media (max-width:640px) {
+      body {
+        font-size: 12.5px
+      }
+
+      .wrap {
+        padding: 28px 14px 72px
+      }
+
+      .site-header {
+        grid-template-columns: 1fr
+      }
+
+      .site-header .right {
+        text-align: left
+      }
+
+      h1 {
+        font-size: 20px
+      }
+
+      .prompt-card {
+        grid-template-columns: 1fr;
+        gap: 7px
+      }
+
+      .zoom {
+        margin-left: 0
+      }
+
+      footer {
+        flex-direction: column;
+        gap: 6px
+      }
+    }
+    .byline {
+      margin: -4px 0 16px;
+      color: var(--dim);
+      font-size: 12px
+    }
+
+    footer .to-right {
+      margin-left: auto
+    }
+  </style>
+</head>
+
+<body>
+  <main class="wrap">
+    <header class="site-header">
+      <div><strong>G.S. LALLER</strong> <a href="./" style="text-decoration:none">/Notes</a> /MoE routing</div>
+      <div class="right" id="hdr-right"></div>
+    </header>
+
+    <section class="intro">
+      <h1>MoE Analysis, which experts fire, and how sure is the router?</h1>
+      <p class="byline">Gurpreet Singh Laller, Opus 5.5</p>
+      <p class="lede">
+        We took the MT-Bench prompts (first turn only), ran inference on each of them with two Mixture-of-Experts
+        models, and captured the statistics of every MoE layer: for each token, which experts the router picked,
+        and how confident that choice was.
+      </p>
+    </section>
+
+    <div class="controls" id="controls">
+      <label class="ctl">Prompt <select id="sel-prompt"></select></label>
+      <div class="ctl">Model <div class="seg" id="seg-model"></div>
+      </div>
+    </div>
+
+    <!-- view options: not sticky, they scroll away with the page -->
+    <div class="controls controls-static" id="controls-view">
+      <div class="ctl"><span class="lab">Colour by <button class="help" data-help="metric"
+            aria-label="What does colour by do?" aria-expanded="false">!</button></span><select
+          id="sel-metric"></select></div>
+      <div class="ctl"><span class="lab">Text layer <button class="help" data-help="layer"
+            aria-label="What does text layer do?" aria-expanded="false">!</button></span><select
+          id="sel-layer"></select></div>
+    </div>
+
+    <div id="app">
+      <p class="empty">Loading <code>data/manifest.json</code>…</p>
+    </div>
+
+    <footer>
+      <div class="to-right"><a href="https://twitter.com/gslaller">@gslaller</a></div>
+    </footer>
+  </main>
+  <div class="tooltip" id="tt"></div>
+
+  <script>
+    "use strict";
+    /* ============================================================ data loading */
+    // ?data=<dir> wins; otherwise web/data/ (container output) then ../data/web/ (pulled by run.sh)
+    const DATA_ARG = new URLSearchParams(location.search).get("data");
+    let DATA = (DATA_ARG || "data/").replace(/\/?$/, "/");
+    const state = {
+      manifest: null, slug: null, uid: null, metric: "mass", layer: -1, tok: null, cellW: 6, span: "all",
+      view: "grid", gcw: 6, grh: 2, gorder: "id", gmiss: true
+    };
+    const cache = new Map();   // "slug/uid" -> decoded sequence
+
+    // float16 -> float32 lookup (65536 entries, built once)
+    const HALF = (() => {
+      const t = new Float32Array(65536);
+      for (let h = 0; h < 65536; h++) {
+        const s = h & 0x8000 ? -1 : 1, e = (h >> 10) & 0x1f, f = h & 0x3ff;
+        t[h] = e === 0 ? s * Math.pow(2, -14) * (f / 1024)
+          : e === 31 ? (f ? NaN : s * Infinity)
+            : s * Math.pow(2, e - 15) * (1 + f / 1024);
+      }
+      return t;
+    })();
+
+    function view(buf, a) {
+      if (!a) return null;
+      const n = a.shape.reduce((x, y) => x * y, 1);
+      if (a.dtype === "uint8") return new Uint8Array(buf, a.offset, n);
+      if (a.dtype === "uint16") return new Uint16Array(buf, a.offset, n);
+      if (a.dtype === "float16") {
+        const raw = new Uint16Array(buf, a.offset, n), out = new Float32Array(n);
+        for (let i = 0; i < n; i++) out[i] = HALF[raw[i]];
+        return out;
+      }
+      throw new Error("dtype " + a.dtype);
+    }
+
+    async function loadSeq(slug, uid) {
+      const key = slug + "/" + uid;
+      if (cache.has(key)) return cache.get(key);
+      const p = (async () => {
+        const [meta, buf] = await Promise.all([
+          fetch(`${DATA}${slug}/${uid}.json`).then(r => { if (!r.ok) throw new Error(r.status); return r.json(); }),
+          fetch(`${DATA}${slug}/${uid}.bin`).then(r => r.arrayBuffer()),
+        ]);
+        const d = {
+          ...meta, idx: view(buf, meta.arrays.rank_idx), prob: view(buf, meta.arrays.rank_prob),
+          H: view(buf, meta.arrays.H), shared: view(buf, meta.arrays.shared)
+        };
+        derive(d);
+        return d;
+      })();
+      cache.set(key, p);
+      return p;
+    }
+
+    /* ============================================================ derived metrics */
+    const METRICS = [
+      {
+        key: "Hn", label: "router entropy  H / ln E", short: "entropy",
+        desc: "Entropy of the full softmax over all experts, normalised to 0–1. Dark = the router is spread out / unsure."
+      },
+      {
+        key: "mass", label: "top-k mass  Σ p₁…p_k", short: "top-k mass",
+        desc: "Probability mass the k fired experts hold before renormalisation. Light = much of the router's belief was dropped."
+      },
+      {
+        key: "margin", label: "margin  p_k − p_k+1", short: "margin",
+        desc: "How far the last picked expert is ahead of the first rejected one. Light (≈0) = a near-tie; the pick was almost swapped."
+      },
+      {
+        key: "top1", label: "top-1 prob  p₁", short: "top-1",
+        desc: "Probability of the single most likely expert."
+      },
+      {
+        key: "reuse", label: "reuse vs previous token  |Sₜ ∩ Sₜ₋₁| / k", short: "reuse",
+        desc: "Fraction of this token's experts that the previous token also used, in the same layer (temporal locality)."
+      },
+      {
+        key: "shared", label: "shared-expert gate  σ(g)", short: "shared gate",
+        desc: "Sigmoid gate on the always-on shared expert."
+      },
+    ];
+    const metricOf = k => METRICS.find(m => m.key === k);
+
+    function derive(d) {
+      const { T, L, R, K, E } = d, n = T * L, lnE = Math.log(E);
+      const Hn = new Float32Array(n), mass = new Float32Array(n), margin = new Float32Array(n),
+        top1 = new Float32Array(n), reuse = new Float32Array(n);
+      for (let t = 0; t < T; t++) for (let l = 0; l < L; l++) {
+        const i = t * L + l, b = i * R;
+        Hn[i] = d.H[i] / lnE;
+        let m = 0; for (let r = 0; r < K; r++) m += d.prob[b + r];
+        mass[i] = m; top1[i] = d.prob[b];
+        margin[i] = d.prob[b + K - 1] - (K < R ? d.prob[b + K] : 0);
+        if (t === 0) { reuse[i] = NaN; continue; }
+        const pb = ((t - 1) * L + l) * R; let hit = 0;
+        for (let r = 0; r < K; r++) {
+          const e = d.idx[b + r];
+          for (let q = 0; q < K; q++) if (d.idx[pb + q] === e) { hit++; break; }
+        }
+        reuse[i] = hit / K;
+      }
+      d.m = { Hn, mass, margin, top1, reuse, shared: d.shared };
+      d.segments = segmentsOf(d);
+    }
+
+    function segmentsOf(d) {
+      const s = [{ name: "prompt", a: 0, b: d.prompt_len }];
+      if (d.think_end && d.think_end > d.prompt_len) {
+        s.push({ name: "thinking", a: d.prompt_len, b: d.think_end });
+        s.push({ name: "answer", a: d.think_end, b: d.T });
+      } else s.push({ name: "completion", a: d.prompt_len, b: d.T });
+      return s.filter(x => x.b > x.a);
+    }
+
+    function spanRange(d, span) {
+      if (span === "prompt") return [0, d.prompt_len];
+      if (span === "gen") return [d.prompt_len, d.T];
+      return [0, d.T];
+    }
+
+    function layerMeans(d, arr, span) {
+      const [a, b] = spanRange(d, span), out = new Float32Array(d.L), cnt = new Float32Array(d.L);
+      for (let t = a; t < b; t++) for (let l = 0; l < d.L; l++) {
+        const v = arr[t * d.L + l]; if (!isNaN(v)) { out[l] += v; cnt[l]++; }
+      }
+      for (let l = 0; l < d.L; l++) out[l] = cnt[l] ? out[l] / cnt[l] : NaN;
+      return out;
+    }
+    function mean(arr) { let s = 0, c = 0; for (const v of arr) if (!isNaN(v)) { s += v; c++; } return c ? s / c : NaN; }
+
+    function kSweep(d, span, layer) {
+      const [a, b] = spanRange(d, span), out = new Float64Array(d.R); let c = 0;
+      for (let t = a; t < b; t++) for (let l = 0; l < d.L; l++) {
+        if (layer >= 0 && l !== layer) continue;
+        const base = (t * d.L + l) * d.R; let cum = 0;
+        for (let r = 0; r < d.R; r++) { cum += d.prob[base + r]; out[r] += cum; }
+        c++;
+      }
+      return Array.from(out, v => v / Math.max(c, 1));
+    }
+
+    function expertCounts(d, span) {
+      const [a, b] = spanRange(d, span), c = new Float32Array(d.L * d.E);
+      for (let t = a; t < b; t++) for (let l = 0; l < d.L; l++) {
+        const base = (t * d.L + l) * d.R;
+        for (let r = 0; r < d.K; r++) c[l * d.E + d.idx[base + r]]++;
+      }
+      const n = Math.max(b - a, 1);
+      for (let i = 0; i < c.length; i++) c[i] /= n;   // share of tokens routed to expert
+      return c;
+    }
+
+    /* ============================================================ colour */
+    // sequential single-hue ramp (reference blue 100→700, lightest recedes to the surface)
+    const RAMP = ["#f3f7fd", "#cde2fb", "#9ec5f4", "#6da7ec", "#3987e5", "#256abf", "#184f95", "#0d366b"].map(h =>
+      [parseInt(h.slice(1, 3), 16), parseInt(h.slice(3, 5), 16), parseInt(h.slice(5, 7), 16)]);
+    function rampRGB(v) {
+      if (isNaN(v)) return [236, 236, 236];
+      v = Math.max(0, Math.min(1, v)) * (RAMP.length - 1);
+      const i = Math.min(Math.floor(v), RAMP.length - 2), f = v - i, a = RAMP[i], b = RAMP[i + 1];
+      return [a[0] + (b[0] - a[0]) * f, a[1] + (b[1] - a[1]) * f, a[2] + (b[2] - a[2]) * f];
+    }
+    const rgb = c => `rgb(${c[0] | 0},${c[1] | 0},${c[2] | 0})`;
+    const rampCSS = () => `linear-gradient(90deg, ${RAMP.map(rgb).join(",")})`;
+    // metric -> 0..1 for colour. margin is small in absolute terms, so it is stretched to its per-seq p98.
+    function scaler(d, key) {
+      if (key !== "margin") return v => v;
+      const a = Array.from(d.m.margin).filter(x => !isNaN(x)).sort((x, y) => x - y);
+      const hi = a[Math.floor(a.length * .98)] || 1;
+      return v => v / hi;
+    }
+    const MODEL_COLORS = ["var(--series-1)", "var(--series-2)", "#1baf7a", "#eda100"];
+
+    /* ============================================================ helpers */
+    const $ = s => document.querySelector(s);
+    const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+    const fmt = (v, d = 3) => isNaN(v) ? "–" : v.toFixed(d);
+    const pct = v => isNaN(v) ? "–" : (v * 100).toFixed(1) + "%";
+    const showTok = s => esc(s.replace(/\n/g, "↵").replace(/\t/g, "⇥")).replace(/ /g, "·");
+    const tt = $("#tt");
+    function tip(html, ev) {
+      if (!html) { tt.style.display = "none"; return; }
+      tt.innerHTML = html; tt.style.display = "block";
+      const w = tt.offsetWidth, h = tt.offsetHeight;
+      let x = ev.clientX + 14, y = ev.clientY + 14;
+      if (x + w > innerWidth - 8) x = ev.clientX - w - 14;
+      if (y + h > innerHeight - 8) y = ev.clientY - h - 14;
+      tt.style.left = x + "px"; tt.style.top = y + "px";
+    }
+    const segOf = (d, t) => d.segments.find(s => t >= s.a && t < s.b)?.name || "";
+    const modelName = slug => state.manifest.models.find(m => m.slug === slug)?.name || slug;
+    const shortName = slug => modelName(slug).split("/").pop();
+
+    /* ============================================================ controls */
+    async function init() {
+      const cands = DATA_ARG ? [DATA] : ["data/", "../data/web/"];
+      for (const c of cands) {
+        try { state.manifest = await fetch(c + "manifest.json").then(r => { if (!r.ok) throw 0; return r.json(); }); DATA = c; break; }
+        catch (e) { /* try next */ }
+      }
+      try { if (!state.manifest) throw 0; }
+      catch (e) {
+        $("#app").innerHTML = `<p class="empty">Could not load <code>data/manifest.json</code>. Run the pipeline
+      (see README) and serve this folder over HTTP, e.g. <code>python3 -m http.server -d web 8000</code>.</p>`;
+        return;
+      }
+      const M = state.manifest;
+      $("#hdr-right").textContent = `${M.models.length} models · ${M.prompts.length} prompts`;
+      const q = new URLSearchParams(location.hash.slice(1));
+      state.slug = M.models.some(m => m.slug === q.get("m")) ? q.get("m") : M.models[0].slug;
+      state.uid = M.prompts.some(p => p.uid === q.get("p")) ? q.get("p") : M.prompts[0].uid;
+
+      $("#sel-prompt").innerHTML = M.prompts.map((p, i) =>
+        `<option value="${p.uid}">${String(i + 1).padStart(2, "0")} · ${esc(p.subcategory || p.category || "")} · ${esc(p.prompt.replace(/\s+/g, " ").slice(0, 70))}</option>`).join("");
+      $("#sel-prompt").value = state.uid;
+      $("#sel-prompt").onchange = e => { state.uid = e.target.value; state.tok = null; render(); };
+
+      $("#seg-model").innerHTML = M.models.map((m, i) =>
+        `<button data-slug="${m.slug}"><span class="sw" style="background:${MODEL_COLORS[i]}"></span>${esc(m.name.split("/").pop())}</button>`).join("");
+      $("#seg-model").onclick = e => {
+        const b = e.target.closest("button"); if (!b) return;
+        if (b.dataset.slug === state.slug) return;
+        const gv = $("#grid-vp"), sc = $("#scroller");
+        state.keep = { gl: gv?.scrollLeft, gt: gv?.scrollTop, ml: sc?.scrollLeft, y: scrollY, tok: state.tok };
+        state.slug = b.dataset.slug; render();
+      };
+
+      $("#sel-metric").innerHTML = METRICS.map(m => `<option value="${m.key}">${m.label}</option>`).join("");
+      $("#sel-metric").onchange = e => { state.metric = e.target.value; drawMap(); drawText(); updateLegend(); };
+      $("#sel-layer").onchange = e => { state.layer = +e.target.value; drawText(); };
+      render();
+    }
+
+    /* ============================================================ page render */
+    let D = null;       // current sequence
+    let OTHERS = [];    // same prompt, all models (for comparison charts)
+
+    async function render() {
+      const M = state.manifest;
+      location.replace("#m=" + state.slug + "&p=" + state.uid);
+      document.querySelectorAll("#seg-model button").forEach(b => b.setAttribute("aria-pressed", b.dataset.slug === state.slug));
+      const prompt = M.prompts.find(p => p.uid === state.uid);
+      if (!prompt.models[state.slug]) {
+        $("#app").innerHTML = `<p class="empty">${esc(shortName(state.slug))} has no data for this prompt.</p>`; return;
+      }
+      D = await loadSeq(state.slug, state.uid);
+      OTHERS = (await Promise.all(M.models.map((m, i) => prompt.models[m.slug]
+        ? loadSeq(m.slug, state.uid).then(d => ({ slug: m.slug, color: MODEL_COLORS[i], d })).catch(() => null) : null)))
+        .filter(Boolean);
+      if (!D.m.shared) state.metric = state.metric === "shared" ? "Hn" : state.metric;
+      $("#sel-metric").querySelector('option[value="shared"]').disabled = !D.m.shared;
+      $("#sel-metric").value = state.metric;
+      const mm = M.models.find(m => m.slug === state.slug);
+      $("#sel-layer").innerHTML = `<option value="-1">mean over layers</option>` +
+        Array.from({ length: D.L }, (_, l) => `<option value="${l}">layer ${mm.layer_ids?.[l] ?? l}${mm.layer_types?.[l] === "full_attention" ? " (attn)" : ""}</option>`).join("");
+      if (state.layer >= D.L) state.layer = -1;
+      $("#sel-layer").value = state.layer;
+      if (state.tok != null && state.tok >= D.T) state.tok = D.T - 1;   // other model's sequence may be shorter
+      if (state.tok == null) state.tok = D.prompt_len < D.T ? D.prompt_len : 0;
+
+      const gen = D.T - D.prompt_len;
+      $("#app").innerHTML = `
+    <div class="prompt-card">
+      <div class="meta"><span class="type">${esc(prompt.category || "prompt")}</span>${esc(prompt.subcategory || "")}<br>${esc(prompt.uid)}</div>
+      <p class="prompt-text">${esc(prompt.prompt)}</p>
+    </div>
+    <div class="tiles">
+      ${tile("tokens", D.T.toLocaleString(), `${D.prompt_len} prompt · ${gen} generated`)}
+      ${tile("experts", `${D.K} of ${D.E}`, `${D.L} MoE layers`)}
+      ${tile("mean entropy", fmt(mean(D.m.Hn), 3), "H / ln E, all tokens·layers")}
+      ${tile("top-k mass", pct(mean(D.m.mass)), "belief kept by the k picks")}
+      ${tile("near-ties", pct(fracBelow(D.m.margin, 0.01)), "margin p_k − p_k+1 < 0.01")}
+      ${tile("reuse t−1", pct(mean(D.m.reuse)), "same expert as previous token")}
+    </div>
+
+    <section class="section" id="sec-map">
+      <div class="section-head"><h2><span class="num">01</span>Token × layer map</h2>
+        <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+          <div class="seg" id="seg-view"><button data-view="grid">full grid · every expert</button><button data-view="map">summary · layer rows</button></div>
+          <button class="fs-btn" id="fs-btn" title="Show this section full screen (Esc to leave)">⛶ full screen</button>
+        </div></div>
+      <div id="view-map">
+      <p class="explain" id="metric-desc"></p>
+      <div class="map-wrap">
+        <div></div><div class="segbar" id="segbar"></div>
+        <div class="yaxis" id="yaxis"></div>
+        <div class="scroller" id="scroller"><canvas id="map"></canvas></div>
+      </div>
+      <div class="legend">
+        <span id="lg-lo">0</span><span class="ramp" style="background:${rampCSS()}"></span><span id="lg-hi">1</span>
+        <span id="lg-name"></span>
+        <span style="color:var(--amber);font-weight:700">A</span><span>= layer with full (softmax) attention; unmarked layers use linear attention (Gated DeltaNet). Every layer has an MoE block.</span>
+        <span class="zoom">cell width <span class="seg seg-sm" id="zoom"><button data-w="1">1px</button><button data-w="6">6px</button><button data-w="10">10px</button></span></span>
+      </div>
+      </div>
+      <div id="view-grid" hidden>
+        <p class="explain">Every expert of every layer is a row (layer blocks separated by a gap), every token a column.
+          Blue cells fired — darker means a higher router probability. Orange cells are the experts ranked just
+          below the top-k cut that <i>almost</i> fired. Hover a cell for its expert, click to inspect the token.</p>
+        <div class="grid-ctl">
+          <span style="display:flex;gap:8px;align-items:center">token width <span class="seg seg-sm" id="g-cw"><button data-w="1">1px</button><button data-w="6">6px</button><button data-w="10">10px</button></span></span>
+          <label>expert height <input type="range" id="g-rh" min="1" max="6" step="1"><span id="g-rh-v"></span></label>
+          <label>row order <select id="g-order"><option value="id">expert id</option><option value="load">by load (per layer)</option></select></label>
+          <label><input type="checkbox" id="g-miss" checked> near-misses</label>
+          <span><span class="sw-cell" style="background:#2a78d6"></span> fired &nbsp;<span class="sw-cell" style="background:#f3b596"></span> rank k+1…${D.R}</span>
+          <span id="g-size" style="margin-left:auto;color:var(--faint)"></span>
+        </div>
+        <div class="grid-vp" id="grid-vp"><div id="grid-spacer"></div><canvas id="grid"></canvas></div>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="section-head"><h2><span class="num">02</span>The sequence, coloured by the router</h2>
+        <span class="section-note" id="text-note"></span></div>
+      <div class="text-view" id="text"></div>
+    </section>
+
+    <section class="section">
+      <div class="section-head"><h2><span class="num">03</span>One token, every layer</h2>
+        <span class="section-note">cells = experts ranked by router prob · red rule = top-k cut</span></div>
+      <p class="explain">Each row is a layer; columns are the experts ranked by router probability (number = expert id,
+        shade = probability). Everything left of the red rule fired; the columns to its right are the experts that
+        <i>almost</i> did. When the first rejected column is as dark as the last accepted one, the choice was a coin-flip.</p>
+      <div class="detail-head" id="detail-head"></div>
+      <div class="grid-scroll" id="detail"></div>
+    </section>
+
+    <section class="section">
+      <div class="section-head"><h2><span class="num">04</span>Layer profiles</h2>
+        <div class="seg" id="seg-span">
+          <button data-span="all">all tokens</button><button data-span="prompt">prompt</button><button data-span="gen">generated</button>
+        </div></div>
+      <p class="explain">Means over tokens, per layer. All models that answered this prompt are overlaid (their generations differ, so compare shapes rather than token-level values).</p>
+      <div class="series-legend" id="series-legend"></div>
+      <div class="charts">
+        <div class="chart" id="c-ent"></div>
+        <div class="chart" id="c-mass"></div>
+        <div class="chart" id="c-reuse"></div>
+        <div class="chart" id="c-ksweep"></div>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="section-head"><h2><span class="num">05</span>Expert load</h2>
+        <span class="section-note" id="load-note"></span></div>
+      <p class="explain">Share of tokens routed to each expert, per layer (same token span as above). A uniform router would
+        give every cell ${pct(D.K / D.E)}; bright streaks are experts this prompt leans on.</p>
+      <div class="map-wrap">
+        <div class="yaxis" id="yaxis2"></div>
+        <div class="scroller"><canvas id="load"></canvas></div>
+      </div>
+      <div class="legend"><span>0</span><span class="ramp" style="background:${rampCSS()}"></span><span id="load-hi"></span>
+        <span>share of tokens</span></div>
+    </section>`;
+
+      document.querySelectorAll("#seg-span button").forEach(b => {
+        b.setAttribute("aria-pressed", b.dataset.span === state.span);
+        b.onclick = () => {
+          state.span = b.dataset.span;
+          document.querySelectorAll("#seg-span button").forEach(x => x.setAttribute("aria-pressed", x.dataset.span === state.span));
+          drawCharts(); drawLoad();
+        };
+      });
+      widthSeg($("#zoom"), () => state.cellW, w => { state.cellW = w; drawMap(); scrollMapTo(state.tok); });
+      $("#fs-btn").onclick = toggleFullscreen;
+      document.querySelectorAll("#app .tile[data-help]").forEach(el => {
+        el.onmousemove = ev => tip(TILE_HELP[el.dataset.help], ev);
+        el.onmouseleave = () => tip(null);
+      });
+
+      setupGrid();
+      document.querySelectorAll("#seg-view button").forEach(b => b.onclick = () => { state.view = b.dataset.view; applyView(); });
+      applyView();
+      drawMap(); updateLegend(); drawText(); drawDetail(); drawCharts(); drawLoad();
+      setSbw();
+      // switching model keeps section 01 where it was (same scroll offsets, clamped to the new sequence length)
+      if (state.keep) {
+        const k = state.keep; state.keep = null;
+        window.scrollTo(0, k.y);
+        const gv = $("#grid-vp"), sc = $("#scroller");
+        if (gv && k.gl != null) { gv.scrollLeft = k.gl; gv.scrollTop = k.gt; drawGrid(); }
+        if (sc && k.ml != null) sc.scrollLeft = k.ml;
+      }
+    }
+    function widthSeg(el, get, set) {
+      const mark = () => el.querySelectorAll("button").forEach(b => b.setAttribute("aria-pressed", +b.dataset.w === get()));
+      mark();
+      el.onclick = e => { const b = e.target.closest("button"); if (!b) return; set(+b.dataset.w); mark(); };
+    }
+
+    /* full screen for section 01 only. The tooltip lives outside the section, so move it in while full screen. */
+    function toggleFullscreen() {
+      const sec = $("#sec-map");
+      if (document.fullscreenElement) document.exitFullscreen();
+      else if (sec.requestFullscreen) sec.requestFullscreen();
+    }
+    document.addEventListener("fullscreenchange", () => {
+      const sec = $("#sec-map"), fs = document.fullscreenElement === sec;
+      (fs ? sec : document.body).appendChild(tt);
+      const b = $("#fs-btn"); if (b) b.textContent = fs ? "✕ exit full screen" : "⛶ full screen";
+      if (state.view === "grid") { sizeGrid(true); drawGrid(); } else drawMap();
+    });
+
+    const TILE_HELP = {
+      "tokens": `<b>Tokens</b><p>Length of the sequence that was replayed through the model: the chat-formatted prompt plus everything the model generated (its hidden &lt;think&gt; reasoning and the visible answer). Every token gets its own routing decision in every layer.</p>`,
+      "experts": `<b>Experts</b><p>“8 of 256” means each MoE layer holds 256 small feed-forward networks (experts) and the router sends every token to only 8 of them. The layer count is how many such routing decisions each token passes through. (A shared expert that every token always uses sits on top and is not part of the choice.)</p>`,
+      "mean entropy": `<b>Mean router entropy</b><p>How spread out the router's probabilities are, averaged over all tokens and layers, scaled 0–1.</p><p><b>0</b> = all probability on one expert (a confident, obvious choice). <b>1</b> = equal probability on all 256 (the router has no preference). Low values mean the top-k pick is clear-cut; high values mean many experts looked equally good.</p>`,
+      "top-k mass": `<b>Top-k mass</b><p>The router scores all 256 experts, but only the best 8 are used. This is how much of the router's total probability those 8 held, on average.</p><p>100% = nothing of value was thrown away. 60% = 40% of the router's belief went to experts that were never run — that is where choosing the “right” top-k matters most.</p>`,
+      "near-ties": `<b>Near-ties</b><p>Share of routing decisions where the 8th chosen expert beat the 9th (the best rejected one) by less than 0.01 probability.</p><p>These are coin-flip decisions: a tiny change in the input (or numeric noise) would have swapped which expert ran.</p>`,
+      "reuse t−1": `<b>Reuse from the previous token</b><p>On average, what fraction of a token's 8 experts the previous token also used, in the same layer.</p><p>High reuse = routing is “sticky” over time (good for caching experts during inference). Random routing would give about 8/256 ≈ 3%.</p>`,
+    };
+
+    const HELP = {
+      metric: () => `<h4>Colour by</h4>
+    <p>Chooses which number paints the <b>summary map</b> (section 01, “summary · layer rows”) and the <b>coloured text</b> (section 02). It does not change the full expert grid, which always shows which experts fired.</p>
+    <p>For every token and every layer the router produces a probability for each of the ${D ? D.E : 256} experts and keeps the top ${D ? D.K : 8}. Each option summarises that decision in one number; darker = higher.</p>
+    <dl>
+      <dt>top-k mass</dt><dd>How much of the router's probability the chosen experts hold. Light = a lot was thrown away, so the choice of top-k really matters here.</dd>
+      <dt>router entropy</dt><dd>How undecided the router is (0 = one clear winner, 1 = all experts equally likely).</dd>
+      <dt>margin</dt><dd>Gap between the last chosen and the first rejected expert. Light (≈0) = near-tie; the pick could easily have gone the other way. Scaled to the sequence's 98th percentile.</dd>
+      <dt>top-1 prob</dt><dd>Probability of the single favourite expert. Dark = one expert dominates.</dd>
+      <dt>reuse</dt><dd>Fraction of this token's experts that the previous token also used in the same layer. Dark = routing stays the same across neighbouring tokens.</dd>
+      <dt>shared gate</dt><dd>How strongly the always-on shared expert is mixed in (0–1).</dd>
+    </dl>`,
+      layer: () => `<h4>Text layer</h4>
+    <p>Controls how the tokens in section 02 (<b>the sequence, coloured by the router</b>) get their colour. It also picks the layer used by the k-sweep chart in section 04.</p>
+    <dl>
+      <dt>mean over layers</dt><dd>Average of the “colour by” value across all ${D ? D.L : 40} MoE layers — one overall number per token.</dd>
+      <dt>layer n</dt><dd>Only that layer's value. Early layers tend to route on surface form (spelling, punctuation), late layers on meaning, so switching layers can show very different patterns on the same text.</dd>
+      <dt>(attn)</dt><dd>Marks layers that use full attention; the others use linear attention (Gated DeltaNet). Every layer has an MoE block regardless.</dd>
+    </dl>`,
+    };
+    let openPop = null;
+    function closePop() { if (openPop) { openPop.pop.remove(); openPop.btn.setAttribute("aria-expanded", "false"); openPop = null; } }
+    document.addEventListener("click", e => {
+      const b = e.target.closest(".help");
+      if (!b) { if (openPop && !e.target.closest(".pop")) closePop(); return; }
+      e.preventDefault(); e.stopPropagation();
+      const same = openPop && openPop.btn === b; closePop(); if (same) return;
+      const pop = document.createElement("div"); pop.className = "pop"; pop.innerHTML = HELP[b.dataset.help]();
+      document.body.appendChild(pop);
+      const r = b.getBoundingClientRect();
+      pop.style.left = Math.max(8, Math.min(r.left - 20, innerWidth - pop.offsetWidth - 8)) + "px";
+      pop.style.top = (r.bottom + 8) + "px";
+      b.setAttribute("aria-expanded", "true"); openPop = { pop, btn: b };
+    });
+    document.addEventListener("keydown", e => { if (e.key === "Escape") closePop(); });
+    addEventListener("scroll", closePop, { passive: true });
+
+    function applyView() {
+      document.querySelectorAll("#seg-view button").forEach(b => b.setAttribute("aria-pressed", b.dataset.view === state.view));
+      $("#view-map").hidden = state.view !== "map";
+      $("#view-grid").hidden = state.view !== "grid";
+      if (state.view === "grid") { sizeGrid(); if (!state.keep) scrollGridTo(state.tok); drawGrid(); }
+    }
+    const tile = (k, v, s) => `<div class="tile" data-help="${k}"><div class="k">${k} <span style="color:var(--faint)">ⓘ</span></div><div class="v">${v}</div><div class="s">${s}</div></div>`;
+    function fracBelow(arr, th) { let c = 0, n = 0; for (const v of arr) if (!isNaN(v)) { n++; if (v < th) c++; } return n ? c / n : NaN; }
+
+    function updateLegend() {
+      const m = metricOf(state.metric);
+      $("#metric-desc").textContent = m.desc;
+      $("#lg-name").textContent = m.label;
+      $("#lg-hi").textContent = state.metric === "margin" ? fmt(scaleHi(D), 3) + " (p98)" : "1";
+    }
+    const scaleHi = d => 1 / scaler(d, "margin")(1);
+
+    /* ============================================================ 01 heatmap */
+    let CELL_H = 6;
+    function drawMap() {
+      CELL_H = Math.max(6, Math.min(16, Math.floor(260 / D.L)));
+      const d = D, c = $("#map"), W = state.cellW, arr = d.m[state.metric], sc = scaler(d, state.metric);
+      // 1px-per-cell offscreen image, scaled up without smoothing
+      const off = document.createElement("canvas"); off.width = d.T; off.height = d.L;
+      const ox = off.getContext("2d"), img = ox.createImageData(d.T, d.L);
+      for (let t = 0; t < d.T; t++) for (let l = 0; l < d.L; l++) {
+        const col = rampRGB(sc(arr ? arr[t * d.L + l] : NaN)), p = (l * d.T + t) * 4;
+        img.data[p] = col[0]; img.data[p + 1] = col[1]; img.data[p + 2] = col[2]; img.data[p + 3] = 255;
+      }
+      ox.putImageData(img, 0, 0);
+      const dpr = window.devicePixelRatio || 1;
+      // browsers cap canvas backing stores at ~32k px per side: shrink the horizontal backing scale for long sequences
+      const sx = Math.min(dpr, 32000 / (d.T * W));
+      c.width = Math.round(d.T * W * sx); c.height = d.L * CELL_H * dpr;
+      c.style.width = d.T * W + "px"; c.style.height = d.L * CELL_H + "px";
+      const x = c.getContext("2d"); x.imageSmoothingEnabled = false;
+      x.drawImage(off, 0, 0, c.width, c.height);
+      x.setTransform(sx, 0, 0, dpr, 0, 0);
+      // segment boundaries
+      x.strokeStyle = "#18181b"; x.lineWidth = 1;
+      for (const s of d.segments.slice(1)) { x.beginPath(); x.moveTo(s.a * W + .5, 0); x.lineTo(s.a * W + .5, d.L * CELL_H); x.stroke(); }
+      // selected token
+      if (state.tok != null) {
+        x.strokeStyle = "#b91c1c"; x.lineWidth = 2;
+        x.strokeRect(state.tok * W - 1, 1, W + 2, d.L * CELL_H - 2);
+      }
+
+      // y axis: layer ids, attention layers flagged
+      const mm = state.manifest.models.find(m => m.slug === state.slug);
+      const ya = $("#yaxis"); ya.style.height = d.L * CELL_H + 2 + "px";
+      let yh = "";
+      const step = d.L > 24 ? 4 : d.L > 12 ? 2 : 1;
+      for (let l = 0; l < d.L; l++) {
+        const attn = mm.layer_types?.[l] === "full_attention";
+        if (l % step === 0 || l === d.L - 1) yh += `<span style="top:${l * CELL_H + CELL_H / 2 + 1}px">L${mm.layer_ids?.[l] ?? l}</span>`;
+        if (attn) yh += `<span class="attn" style="top:${l * CELL_H + CELL_H / 2 + 1}px;right:-4px;font-size:8px">A</span>`;
+      }
+      ya.innerHTML = yh;
+      // segment bar (scrolls with the map)
+      const sb = $("#segbar"), sc2 = $("#scroller");
+      sb.innerHTML = d.segments.map(s => `<div style="left:${s.a * W - sc2.scrollLeft}px;width:${(s.b - s.a) * W}px">${s.name} · ${s.b - s.a}</div>`).join("");
+      sc2.onscroll = () => sb.querySelectorAll("div").forEach((el, i) => el.style.left = d.segments[i].a * W - sc2.scrollLeft + "px");
+      sb.style.overflow = "hidden";
+
+      c.onmousemove = ev => {
+        const r = c.getBoundingClientRect(), t = Math.floor((ev.clientX - r.left) / W), l = Math.floor((ev.clientY - r.top) / CELL_H);
+        if (t < 0 || t >= d.T || l < 0 || l >= d.L) return tip(null);
+        tip(cellTip(d, t, l), ev);
+      };
+      c.onmouseleave = () => tip(null);
+      c.onclick = ev => { const r = c.getBoundingClientRect(); selectTok(Math.floor((ev.clientX - r.left) / W), false); };
+    }
+
+    function cellTip(d, t, l) {
+      const i = t * d.L + l, b = i * d.R, mm = state.manifest.models.find(m => m.slug === state.slug);
+      let ex = "";
+      for (let r = 0; r < Math.min(d.K + 2, d.R); r++)
+        ex += `<div class="row${r >= d.K ? " muted" : ""}"><span>${r < d.K ? "#" + (r + 1) : "rejected"} · expert ${d.idx[b + r]}</span><span>${fmt(d.prob[b + r], 4)}</span></div>`;
+      return `<div><span class="tt-tok">${showTok(d.tokens[t])}</span> <span class="muted">t=${t} · ${segOf(d, t)} · layer ${mm.layer_ids?.[l] ?? l}</span></div>
+    <div class="row"><span>entropy H/lnE</span><b>${fmt(d.m.Hn[i])}</b></div>
+    <div class="row"><span>top-k mass</span><b>${pct(d.m.mass[i])}</b></div>
+    <div class="row"><span>margin p_k−p_k+1</span><b>${fmt(d.m.margin[i], 4)}</b></div>
+    <div style="margin-top:4px;border-top:1px solid var(--line);padding-top:4px">${ex}</div>`;
+    }
+
+    function scrollMapTo(t) {
+      const sc = $("#scroller"), x = t * state.cellW;
+      if (x < sc.scrollLeft + 20 || x > sc.scrollLeft + sc.clientWidth - 20) sc.scrollLeft = x - sc.clientWidth / 2;
+    }
+    function selectTok(t, fromText) {
+      if (t < 0 || t >= D.T) return;
+      state.tok = t;
+      drawMap(); drawDetail();
+      if (state.view === "grid") { scrollGridTo(t); drawGrid(); }
+      document.querySelectorAll("#text .tk.sel").forEach(e => e.classList.remove("sel"));
+      const el = document.querySelector(`#text .tk[data-t="${t}"]`);
+      if (el) { el.classList.add("sel"); if (!fromText) el.scrollIntoView({ block: "nearest" }); }
+      scrollMapTo(t);
+    }
+
+    /* ============================================================ 01b full expert grid (virtualised) */
+    // Content space: x = GX + t*cw ; y = GY + l*(E*rh + GAP) + pos*rh.  Only the visible window is painted.
+    const GX = 52, GY = 20, GAP = 10;
+    let G = null;   // geometry + per-layer row order for the current sequence
+
+    function setupGrid() {
+      const d = D;
+      const order = [], pos = [];   // order[l][row] = expert ; pos[l][expert] = row
+      const cnt = state.gorder === "load" ? expertCounts(d, "all") : null;
+      for (let l = 0; l < d.L; l++) {
+        const o = Array.from({ length: d.E }, (_, e) => e);
+        if (cnt) o.sort((a, b) => cnt[l * d.E + b] - cnt[l * d.E + a] || a - b);
+        const p = new Int32Array(d.E); o.forEach((e, r) => p[e] = r);
+        order.push(o); pos.push(p);
+      }
+      G = { order, pos };
+      const cw = $("#g-cw"), rh = $("#g-rh"), od = $("#g-order"), ms = $("#g-miss");
+      rh.value = state.grh; od.value = state.gorder; ms.checked = state.gmiss;
+      const lab = () => { $("#g-rh-v").textContent = state.grh + "px"; };
+      lab();
+      const re = keepCenter => { lab(); sizeGrid(keepCenter); drawGrid(); };
+      widthSeg(cw, () => state.gcw, w => { state.gcw = w; re(true); });
+      rh.oninput = () => { state.grh = +rh.value; re(true); };
+      od.onchange = () => { state.gorder = od.value; setupGrid(); sizeGrid(); drawGrid(); };
+      ms.onchange = () => { state.gmiss = ms.checked; drawGrid(); };
+      const vp = $("#grid-vp"), c = $("#grid");
+      vp.onscroll = () => drawGrid();
+      c.onmousemove = ev => { const h = gridHit(ev); tip(h ? gridTip(h) : null, ev); };
+      c.onmouseleave = () => tip(null);
+      c.onclick = ev => { const h = gridHit(ev); if (h) selectTok(h.t, false); };
+      if (!window.__gridResize) { window.__gridResize = true; addEventListener("resize", () => { if (state.view === "grid") drawGrid(); }); }
+    }
+    const layerH = () => D.E * state.grh + GAP;
+
+    function sizeGrid(keepCenter) {
+      const vp = $("#grid-vp"), sp = $("#grid-spacer");
+      // remember the content point at the centre so zooming keeps it in view
+      let ct = null, cy = null;
+      if (keepCenter && G.w) { ct = (vp.scrollLeft + vp.clientWidth / 2 - GX) / G.cw; cy = (vp.scrollTop + vp.clientHeight / 2 - GY) / G.lh; }
+      G.cw = state.gcw; G.rh = state.grh; G.lh = layerH();
+      G.w = GX + D.T * G.cw + 20; G.h = GY + D.L * G.lh;
+      sp.style.width = G.w + "px"; sp.style.height = G.h + "px";
+      $("#g-size").textContent = `${D.T.toLocaleString()} tokens × ${D.L}·${D.E} = ${(D.L * D.E).toLocaleString()} expert rows`;
+      if (ct != null) { vp.scrollLeft = GX + ct * G.cw - vp.clientWidth / 2; vp.scrollTop = GY + cy * G.lh - vp.clientHeight / 2; }
+    }
+    function scrollGridTo(t) {
+      const vp = $("#grid-vp"); if (!vp || !G || !G.w) return;
+      const x = GX + t * G.cw;
+      if (x < vp.scrollLeft + GX + 10 || x > vp.scrollLeft + vp.clientWidth - 20) vp.scrollLeft = x - vp.clientWidth / 2;
+    }
+
+    function drawGrid() {
+      const d = D, vp = $("#grid-vp"), c = $("#grid");
+      if (!G || !G.w || state.view !== "grid") return;
+      const W = vp.clientWidth, H = vp.clientHeight, sl = vp.scrollLeft, st = vp.scrollTop, dpr = window.devicePixelRatio || 1;
+      c.style.left = sl + "px"; c.style.top = st + "px"; c.style.width = W + "px"; c.style.height = H + "px";
+      if (c.width !== W * dpr || c.height !== H * dpr) { c.width = W * dpr; c.height = H * dpr; }
+      const x = c.getContext("2d"); x.setTransform(dpr, 0, 0, dpr, 0, 0);
+      x.fillStyle = "#fff"; x.fillRect(0, 0, W, H);
+      const { cw, rh, lh } = G;
+      const t0 = Math.max(0, Math.floor((sl) / cw) - 1), t1 = Math.min(d.T, Math.ceil((sl + W - GX) / cw) + 1);
+      const l0 = Math.max(0, Math.floor((st) / lh) - 1), l1 = Math.min(d.L, Math.ceil((st + H - GY) / lh) + 1);
+      const X = t => GX + t * cw - sl, Y = l => GY + l * lh - st;
+      const lnE = Math.log(d.E);
+      // layer bands (empty cells) — the white GAP between them separates layers
+      x.fillStyle = "#f4f4f5";
+      for (let l = l0; l < l1; l++) x.fillRect(Math.max(GX, X(t0)), Y(l), Math.min(W, X(t1)) - Math.max(GX, X(t0)), d.E * rh);
+      // segment boundaries (prompt | thinking | answer)
+      x.fillStyle = "#d4d4d8";
+      for (const s of d.segments.slice(1)) if (s.a >= t0 && s.a < t1) x.fillRect(X(s.a) - 1, GY, 1, H);
+      // cells: loop over visible tokens × visible layers × ranked experts
+      const cwp = Math.max(cw - (cw >= 4 ? 1 : 0), 1), rhp = Math.max(rh - (rh >= 4 ? 1 : 0), 1);   // 1px spacer once cells are big enough
+      for (let t = t0; t < t1; t++) {
+        const px = X(t);
+        for (let l = l0; l < l1; l++) {
+          const b = (t * d.L + l) * d.R, py = Y(l), pos = G.pos[l];
+          const rmax = state.gmiss ? d.R : d.K;
+          for (let r = rmax - 1; r >= 0; r--) {
+            const e = d.idx[b + r], p = d.prob[b + r];
+            if (r < d.K) { const v = .28 + .72 * Math.min(1, p / .35); x.fillStyle = rgb(rampRGB(v)); }
+            else x.fillStyle = r === d.K ? "#eb8a5e" : "#f6c9b3";   // first rejected expert stands out
+            x.fillRect(px, py + pos[e] * rh, cwp, rhp);
+          }
+        }
+      }
+      // selected token column
+      if (state.tok != null && state.tok >= t0 && state.tok < t1) {
+        x.strokeStyle = "#b91c1c"; x.lineWidth = 1;
+        x.strokeRect(X(state.tok) - 1.5, GY - 4, cw + 2, H);
+      }
+      // sticky gutters: top (token ticks, segment names) and left (layer labels)
+      x.fillStyle = "#fff"; x.fillRect(0, 0, W, GY - 2); x.fillRect(0, 0, GX - 2, H);
+      x.font = "10px 'JetBrains Mono', Menlo, monospace"; x.textBaseline = "middle";
+      x.fillStyle = "#66666e";
+      const tickEvery = [10, 20, 50, 100, 200, 500, 1000].find(k => k * cw >= 70) || 2000;
+      for (let t = Math.ceil(t0 / tickEvery) * tickEvery; t < t1; t += tickEvery) if (X(t) > GX) x.fillText(String(t), X(t) + 2, 8);
+      x.fillStyle = "#15803d";
+      for (const s of d.segments) { const xs = Math.max(GX, X(s.a)); if (X(s.b) > GX && xs < W) x.fillText(s.name.toUpperCase(), xs + 2, GY - 7 > 8 ? GY - 7 : 8); }
+      const mm = state.manifest.models.find(m => m.slug === state.slug);
+      for (let l = l0; l < l1; l++) {
+        const y = Y(l); if (y + d.E * rh < GY) continue;
+        const attn = mm.layer_types?.[l] === "full_attention";
+        x.fillStyle = attn ? "#b45309" : "#18181b"; x.font = "700 10px 'JetBrains Mono', Menlo, monospace";
+        const ly = Math.min(Math.max(y + 8, GY + 6), y + d.E * rh - 4);
+        x.fillText(`L${mm.layer_ids?.[l] ?? l}${attn ? " A" : ""}`, 4, ly);
+        x.font = "10px 'JetBrains Mono', Menlo, monospace"; x.fillStyle = "#a1a1aa";
+        if (d.E * rh > 60) {
+          x.fillText(state.gorder === "id" ? "e0" : "top", 4, Math.max(y + 22, GY + 20));
+          x.fillText(state.gorder === "id" ? `e${d.E - 1}` : "rare", 4, y + d.E * rh - 6);
+        }
+        x.fillStyle = "#e4e4e7"; x.fillRect(GX - 6, y, 2, d.E * rh);
+      }
+      x.fillStyle = "#fff"; x.fillRect(0, 0, GX - 2, GY - 2);
+    }
+
+    function gridHit(ev) {
+      const vp = $("#grid-vp"), r = vp.getBoundingClientRect();
+      const cx = ev.clientX - r.left + vp.scrollLeft - GX, cy = ev.clientY - r.top + vp.scrollTop - GY;
+      if (cx < 0 || cy < 0) return null;
+      const t = Math.floor(cx / G.cw), l = Math.floor(cy / G.lh), row = Math.floor((cy - l * G.lh) / G.rh);
+      if (t >= D.T || l >= D.L || row >= D.E) return null;
+      return { t, l, e: G.order[l][row] };
+    }
+    function gridTip({ t, l, e }) {
+      const d = D, b = (t * d.L + l) * d.R, mm = state.manifest.models.find(m => m.slug === state.slug);
+      let rank = -1; for (let r = 0; r < d.R; r++) if (d.idx[b + r] === e) { rank = r; break; }
+      const st = rank < 0 ? `<span class="muted">not in top-${d.R}</span>`
+        : rank < d.K ? `<b>fired</b> · rank ${rank + 1} of ${d.K}` : `<b style="color:#c2410c">near-miss</b> · rank ${rank + 1} (cut at ${d.K})`;
+      return `<div><span class="tt-tok">${showTok(d.tokens[t])}</span> <span class="muted">t=${t} · ${segOf(d, t)}</span></div>
+    <div class="row"><span>layer ${mm.layer_ids?.[l] ?? l} · expert ${e}</span><span>${st}</span></div>
+    ${rank >= 0 ? `<div class="row"><span>router prob</span><b>${fmt(d.prob[b + rank], 4)}</b></div>` : ""}
+    <div class="row muted"><span>k-th vs (k+1)-th</span><span>${fmt(d.prob[b + d.K - 1], 4)} / ${fmt(d.prob[b + d.K], 4)}</span></div>`;
+    }
+
+    /* ============================================================ 02 text */
+    function drawText() {
+      const d = D, arr = d.m[state.metric], sc = scaler(d, state.metric), L = d.L, lay = state.layer;
+      const parts = [];
+      let segIdx = 0;
+      for (let t = 0; t < d.T; t++) {
+        while (segIdx < d.segments.length && d.segments[segIdx].a === t) { parts.push(`<span class="mark">${d.segments[segIdx].name}</span>`); segIdx++; }
+        let v;
+        if (!arr) v = NaN;
+        else if (lay >= 0) v = arr[t * L + lay];
+        else { let s = 0, c = 0; for (let l = 0; l < L; l++) { const x = arr[t * L + l]; if (!isNaN(x)) { s += x; c++; } } v = c ? s / c : NaN; }
+        const s = sc(v), col = rampRGB(s), dark = s > .55;
+        parts.push(`<span class="tk${t === state.tok ? " sel" : ""}" data-t="${t}" style="background:${rgb(col)}${dark ? ";color:#fff" : ""}">${esc(d.tokens[t])}</span>`);
+      }
+      const el = $("#text"); el.innerHTML = parts.join("");
+      $("#text-note").textContent = `${metricOf(state.metric).short} · ${lay >= 0 ? "layer " + lay : "mean over layers"} · click a token`;
+      el.onclick = e => { const s = e.target.closest(".tk"); if (s) selectTok(+s.dataset.t, true); };
+      el.onmousemove = e => {
+        const s = e.target.closest(".tk"); if (!s) return tip(null);
+        const t = +s.dataset.t; tip(`<span class="tt-tok">${showTok(d.tokens[t])}</span> <span class="muted">t=${t} · ${segOf(d, t)}</span>`, e);
+      };
+      el.onmouseleave = () => tip(null);
+    }
+
+    /* ============================================================ 03 token detail */
+    function drawDetail() {
+      const d = D, t = state.tok, mm = state.manifest.models.find(m => m.slug === state.slug);
+      let pmax = 0; for (let l = 0; l < d.L; l++) pmax = Math.max(pmax, d.prob[(t * d.L + l) * d.R]);
+      $("#detail-head").innerHTML = `
+    <button class="nav-btn" id="prev">← prev</button><button class="nav-btn" id="next">next →</button>
+    <span>token <code>${showTok(d.tokens[t])}</code></span><span>t = ${t} / ${d.T - 1}</span><span>${segOf(d, t)}</span>
+    <span>mean entropy ${fmt(avgAt(d.m.Hn, d, t))}</span><span>mean top-k mass ${pct(avgAt(d.m.mass, d, t))}</span>`;
+      $("#prev").onclick = () => selectTok(t - 1);
+      $("#next").onclick = () => selectTok(t + 1);
+      let h = `<table class="rank-grid"><thead><tr><th></th>`;
+      for (let r = 0; r < d.R; r++) h += `<th>${r + 1}</th>`;
+      h += `<th>mass</th><th>H/lnE</th><th>margin</th></tr></thead><tbody>`;
+      for (let l = 0; l < d.L; l++) {
+        const i = t * d.L + l, b = i * d.R, attn = mm.layer_types?.[l] === "full_attention";
+        h += `<tr><th>${attn ? '<span style="color:var(--amber);font-weight:700">A</span> ' : ""}L${mm.layer_ids?.[l] ?? l}</th>`;
+        for (let r = 0; r < d.R; r++) {
+          const p = d.prob[b + r], s = p / (pmax || 1), col = rampRGB(s);
+          h += `<td class="${r === d.K ? "cut" : ""}" style="background:${rgb(col)};${s > .55 ? "color:#fff" : ""}${r >= d.K ? ";opacity:.85" : ""}"
+        title="expert ${d.idx[b + r]} · p=${p.toFixed(4)}">${d.idx[b + r]}</td>`;
+        }
+        h += `<td class="num">${pct(d.m.mass[i])}</td><td class="num">${fmt(d.m.Hn[i])}</td><td class="num">${fmt(d.m.margin[i], 4)}</td></tr>`;
+      }
+      $("#detail").innerHTML = h + "</tbody></table>";
+    }
+    function avgAt(arr, d, t) { let s = 0; for (let l = 0; l < d.L; l++) s += arr[t * d.L + l]; return s / d.L; }
+
+    /* ============================================================ 04 charts (SVG) */
+    function lineChart(el, { title, sub, series, xLabels, yMin = 0, yMax = 1, yFmt = v => v.toFixed(2), marker = null, xName = "layer" }) {
+      const W = 520, H = 200, m = { l: 40, r: 12, t: 10, b: 26 }, iw = W - m.l - m.r, ih = H - m.t - m.b;
+      const n = xLabels.length, X = i => m.l + (n > 1 ? i / (n - 1) : .5) * iw, Y = v => m.t + ih - (v - yMin) / (yMax - yMin) * ih;
+      let s = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(title)}"><g class="axis">`;
+      for (let k = 0; k <= 4; k++) {
+        const v = yMin + (yMax - yMin) * k / 4, y = Y(v);
+        s += `<line class="${k ? "gridline" : "baseline"}" x1="${m.l}" x2="${W - m.r}" y1="${y}" y2="${y}"/><text x="${m.l - 6}" y="${y + 3}" text-anchor="end">${yFmt(v)}</text>`;
+      }
+      const every = Math.ceil(n / 10);
+      xLabels.forEach((lab, i) => { if (i % every === 0 || i === n - 1) s += `<text x="${X(i)}" y="${H - 8}" text-anchor="middle">${lab}</text>`; });
+      s += `</g>`;
+      if (marker != null) s += `<line x1="${X(marker.i)}" x2="${X(marker.i)}" y1="${m.t}" y2="${m.t + ih}" stroke="#b91c1c" stroke-width="1" stroke-dasharray="3 3"/>
+    <text x="${X(marker.i) + 4}" y="${m.t + 10}" font-size="10" fill="#b91c1c">${esc(marker.label)}</text>`;
+      for (const se of series) {
+        const pts = se.values.map((v, i) => isNaN(v) ? null : `${X(i).toFixed(1)},${Y(v).toFixed(1)}`).filter(Boolean);
+        s += `<polyline fill="none" stroke="${se.color}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" points="${pts.join(" ")}"/>`;
+      }
+      s += `<line class="xh" x1="0" x2="0" y1="${m.t}" y2="${m.t + ih}" stroke="#18181b" stroke-width="1" style="display:none"/>`;
+      for (const se of series) s += `<circle class="dot" r="4" fill="${se.color}" stroke="#fff" stroke-width="2" style="display:none"/>`;
+      s += `<rect x="${m.l}" y="${m.t}" width="${iw}" height="${ih}" fill="transparent"/></svg>`;
+      el.innerHTML = `<h3>${esc(title)}</h3><div class="sub">${sub}</div>${s}`;
+      const svg = el.querySelector("svg"), xh = svg.querySelector(".xh"), dots = svg.querySelectorAll(".dot");
+      svg.onmousemove = ev => {
+        const r = svg.getBoundingClientRect(), px = (ev.clientX - r.left) / r.width * W;
+        const i = Math.max(0, Math.min(n - 1, Math.round((px - m.l) / iw * (n - 1))));
+        xh.setAttribute("x1", X(i)); xh.setAttribute("x2", X(i)); xh.style.display = "";
+        series.forEach((se, k) => {
+          const v = se.values[i];
+          if (isNaN(v)) { dots[k].style.display = "none"; return; }
+          dots[k].setAttribute("cx", X(i)); dots[k].setAttribute("cy", Y(v)); dots[k].style.display = "";
+        });
+        tip(`<b>${xName} ${xLabels[i]}</b>` + series.map(se =>
+          `<div class="row"><span><i style="display:inline-block;width:8px;height:8px;border-radius:2px;background:${se.color};margin-right:6px"></i>${esc(se.name)}</span><b>${yFmt(se.values[i])}</b></div>`).join(""), ev);
+      };
+      svg.onmouseleave = () => { xh.style.display = "none"; dots.forEach(d => d.style.display = "none"); tip(null); };
+    }
+
+    function drawCharts() {
+      const span = state.span;
+      const Lmax = Math.max(...OTHERS.map(o => o.d.L));
+      const labels = Array.from({ length: Lmax }, (_, i) => i);
+      $("#series-legend").innerHTML = OTHERS.map(o =>
+        `<span><i style="background:${o.color}"></i>${esc(shortName(o.slug))}${o.slug === state.slug ? " (selected)" : ""} · T=${o.d.T}</span>`).join("");
+      const S = f => OTHERS.map(o => ({ name: shortName(o.slug), color: o.color, values: Array.from(f(o.d)) }));
+      const ent = S(d => layerMeans(d, d.m.Hn, span)), mass = S(d => layerMeans(d, d.m.mass, span)),
+        reu = S(d => layerMeans(d, d.m.reuse, span));
+      const rng = (ser, pad = .05) => {
+        const v = ser.flatMap(s => s.values).filter(x => !isNaN(x));
+        const lo = Math.min(...v), hi = Math.max(...v); return [Math.max(0, lo - pad), Math.min(1, hi + pad)];
+      };
+      let [a, b] = rng(ent);
+      lineChart($("#c-ent"), { title: "Router entropy by layer", sub: "mean H / ln E  (0 = one expert takes all, 1 = uniform)", series: ent, xLabels: labels, yMin: a, yMax: b });
+      [a, b] = rng(mass);
+      lineChart($("#c-mass"), { title: "Top-k mass by layer", sub: "mean Σ p over the k fired experts — the rest is discarded", series: mass, xLabels: labels, yMin: a, yMax: b, yFmt: v => (v * 100).toFixed(0) + "%" });
+      [a, b] = rng(reu);
+      lineChart($("#c-reuse"), { title: "Expert reuse from the previous token", sub: "mean |Sₜ ∩ Sₜ₋₁| / k — temporal locality of routing", series: reu, xLabels: labels, yMin: a, yMax: b, yFmt: v => (v * 100).toFixed(0) + "%" });
+      const lay = state.layer;
+      const ks = OTHERS.map(o => ({ name: shortName(o.slug), color: o.color, values: kSweep(o.d, span, lay < o.d.L ? lay : -1) }));
+      const Rm = Math.min(...OTHERS.map(o => o.d.R));
+      ks.forEach(s => s.values = s.values.slice(0, Rm));
+      [a, b] = rng(ks, .02);
+      lineChart($("#c-ksweep"), {
+        title: "How much would a different k keep?", sub: `mean cumulative router mass captured by the top-k, k = 1…${Rm}  (${lay >= 0 ? "layer " + lay : "all layers"})`,
+        series: ks, xLabels: Array.from({ length: Rm }, (_, i) => i + 1), yMin: a, yMax: Math.min(1, b), yFmt: v => (v * 100).toFixed(0) + "%",
+        marker: { i: D.K - 1, label: `k = ${D.K} used` }, xName: "k ="
+      });
+    }
+
+    /* ============================================================ 05 expert load */
+    function drawLoad() {
+      const d = D, c = $("#load"), cnt = expertCounts(d, state.span);
+      let hi = 0; for (const v of cnt) hi = Math.max(hi, v);
+      const CW = Math.max(2, Math.min(24, Math.floor((c.parentElement.clientWidth - 2) / d.E))), CH = Math.max(6, Math.min(16, Math.floor(260 / d.L)));
+      const off = document.createElement("canvas"); off.width = d.E; off.height = d.L;
+      const ox = off.getContext("2d"), img = ox.createImageData(d.E, d.L);
+      for (let l = 0; l < d.L; l++) for (let e = 0; e < d.E; e++) {
+        const col = rampRGB(cnt[l * d.E + e] / (hi || 1)), p = (l * d.E + e) * 4;
+        img.data[p] = col[0]; img.data[p + 1] = col[1]; img.data[p + 2] = col[2]; img.data[p + 3] = 255;
+      }
+      ox.putImageData(img, 0, 0);
+      const dpr = window.devicePixelRatio || 1;
+      c.width = d.E * CW * dpr; c.height = d.L * CH * dpr; c.style.width = d.E * CW + "px"; c.style.height = d.L * CH + "px";
+      const x = c.getContext("2d"); x.imageSmoothingEnabled = false; x.drawImage(off, 0, 0, c.width, c.height);
+      $("#load-hi").textContent = pct(hi);
+      // per-layer imbalance: max share / uniform share
+      let worst = 0, wl = 0;
+      for (let l = 0; l < d.L; l++) {
+        let m = 0; for (let e = 0; e < d.E; e++) m = Math.max(m, cnt[l * d.E + e]);
+        const r = m / (d.K / d.E); if (r > worst) { worst = r; wl = l; }
+      }
+      $("#load-note").textContent = `busiest expert: ${worst.toFixed(1)}× uniform share (layer ${wl})`;
+      const ya = $("#yaxis2"); ya.style.height = d.L * CH + 2 + "px";
+      const step = d.L > 24 ? 4 : d.L > 12 ? 2 : 1;
+      ya.innerHTML = Array.from({ length: d.L }, (_, l) => (l % step === 0 || l === d.L - 1) ? `<span style="top:${l * CH + CH / 2 + 1}px">L${l}</span>` : "").join("");
+      c.onmousemove = ev => {
+        const r = c.getBoundingClientRect(), e = Math.floor((ev.clientX - r.left) / CW), l = Math.floor((ev.clientY - r.top) / CH);
+        if (e < 0 || e >= d.E || l < 0 || l >= d.L) return tip(null);
+        const v = cnt[l * d.E + e];
+        tip(`<b>layer ${l} · expert ${e}</b><div class="row"><span>share of tokens</span><b>${pct(v)}</b></div>
+      <div class="row muted"><span>vs uniform</span><span>${(v / (d.K / d.E)).toFixed(2)}×</span></div>`, ev);
+      };
+      c.onmouseleave = () => tip(null);
+    }
+
+    document.addEventListener("keydown", e => {
+      if (!D || e.target.tagName === "SELECT") return;
+      if (e.key === "ArrowRight") { selectTok(state.tok + 1); e.preventDefault(); }
+      if (e.key === "ArrowLeft") { selectTok(state.tok - 1); e.preventDefault(); }
+    });
+    function setSbw() { document.documentElement.style.setProperty("--sbw", (innerWidth - document.documentElement.clientWidth) + "px"); }
+    addEventListener("resize", setSbw); setSbw();
+    init();
+  </script>
+</body>
+
+</html>
