@@ -172,6 +172,10 @@
       border-bottom: 1px solid var(--line)
     }
 
+    .controls-inline {
+      padding: 4px 0 12px
+    }
+
     .controls-static {
       position: static;
       background: none;
@@ -580,7 +584,48 @@
       word-break: break-word;
       font-size: 12.5px;
       line-height: 1.9;
-      background: #fff
+      background: #fff;
+      transition: max-height .2s ease
+    }
+
+    /* section 02: vertical expand / collapse toggle, bottom-right of the text box */
+    .text-wrap {
+      position: relative
+    }
+
+    .text-wrap.tall .text-view {
+      max-height: calc(100vh - 150px)
+    }
+
+    .expand-btn {
+      position: absolute;
+      right: 10px;
+      bottom: 10px;
+      z-index: 2;
+      width: 28px;
+      height: 28px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border: 1px solid var(--line);
+      border-radius: 4px;
+      background: rgba(255, 255, 255, .95);
+      color: var(--dim);
+      font-size: 15px;
+      line-height: 1;
+      cursor: pointer;
+      padding: 0
+    }
+
+    .expand-btn:hover {
+      border-color: var(--ink);
+      color: var(--ink)
+    }
+
+    .text-wrap.tall .expand-btn {
+      background: var(--ink);
+      color: #fff;
+      border-color: var(--ink)
     }
 
     /* sections 02 and 03 are click targets, not text to copy: no accidental selection */
@@ -695,6 +740,33 @@
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(420px, 1fr));
       gap: 22px 28px
+    }
+
+    .home-link {
+      text-decoration: none
+    }
+
+    .home-link:hover strong {
+      color: var(--rust)
+    }
+
+    .chart-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 12px;
+      flex-wrap: wrap
+    }
+
+    .chart-head .ctl {
+      flex-direction: row;
+      align-items: center;
+      gap: 6px
+    }
+
+    .chart-head select {
+      font-size: 11.5px;
+      padding: 2px 6px
     }
 
     .chart h3 {
@@ -856,7 +928,7 @@
 <body>
   <main class="wrap">
     <header class="site-header">
-      <div><strong>G.S. LALLER</strong> <a href="./" style="text-decoration:none">/Notes</a> /MoE routing</div>
+      <div><a href="./" class="home-link"><strong>G.S. LALLER</strong> /Notes</a> /MoE routing</div>
       <div class="right" id="hdr-right"></div>
     </header>
 
@@ -876,14 +948,10 @@
       </div>
     </div>
 
-    <!-- view options: not sticky, they scroll away with the page -->
+    <!-- view options (not sticky). The same two settings are repeated in sections 02 and 04; all copies are linked. -->
     <div class="controls controls-static" id="controls-view">
-      <div class="ctl"><span class="lab">Colour by <button class="help" data-help="metric"
-            aria-label="What does colour by do?" aria-expanded="false">!</button></span><select
-          id="sel-metric"></select></div>
-      <div class="ctl"><span class="lab">Text layer <button class="help" data-help="layer"
-            aria-label="What does text layer do?" aria-expanded="false">!</button></span><select
-          id="sel-layer"></select></div>
+      <div class="ctl"><span class="lab">Colour by <button class="help" data-help="metric-top" aria-label="What does colour by do here?" aria-expanded="false">!</button></span><select class="js-metric" data-ctx="top"></select></div>
+      <div class="ctl"><span class="lab">Layer <button class="help" data-help="layer-top" aria-label="What does layer do here?" aria-expanded="false">!</button></span><select class="js-layer" data-ctx="top"></select></div>
     </div>
 
     <div id="app">
@@ -957,12 +1025,12 @@
     /* ============================================================ derived metrics */
     const METRICS = [
       {
-        key: "Hn", label: "router entropy  H / ln E", short: "entropy",
-        desc: "Entropy of the full softmax over all experts, normalised to 0–1. Dark = the router is spread out / unsure."
-      },
-      {
         key: "mass", label: "top-k mass  Σ p₁…p_k", short: "top-k mass",
         desc: "Probability mass the k fired experts hold before renormalisation. Light = much of the router's belief was dropped."
+      },
+      {
+        key: "Hn", label: "router entropy  H / ln E", short: "entropy",
+        desc: "Entropy of the full softmax over all experts, normalised to 0–1. Dark = the router is spread out / unsure."
       },
       {
         key: "margin", label: "margin  p_k − p_k+1", short: "margin",
@@ -1001,6 +1069,16 @@
         }
         reuse[i] = hit / K;
       }
+      // chance level for reuse: if every token drew its experts independently with this sequence's per-layer
+      // expert frequencies q_e (fraction of tokens using expert e), E|S_t ∩ S_t-1| / K = Σ_e q_e² / K
+      let chance = 0;
+      for (let l = 0; l < L; l++) {
+        const q = new Float64Array(E);
+        for (let t = 0; t < T; t++) { const b = (t * L + l) * R; for (let r = 0; r < K; r++) q[d.idx[b + r]]++; }
+        let ss = 0; for (let e = 0; e < E; e++) { const f = q[e] / T; ss += f * f; }
+        chance += ss / K / L;
+      }
+      d.reuseChance = chance;
       d.m = { Hn, mass, margin, top1, reuse, shared: d.shared };
       d.segments = segmentsOf(d);
     }
@@ -1130,9 +1208,19 @@
         state.slug = b.dataset.slug; render();
       };
 
-      $("#sel-metric").innerHTML = METRICS.map(m => `<option value="${m.key}">${m.label}</option>`).join("");
-      $("#sel-metric").onchange = e => { state.metric = e.target.value; drawMap(); drawText(); updateLegend(); };
-      $("#sel-layer").onchange = e => { state.layer = +e.target.value; drawText(); };
+      // "Colour by" and "Layer" appear several times on the page; every copy is bound through one delegated handler
+      document.addEventListener("change", e => {
+        const el = e.target;
+        if (el.classList.contains("js-metric")) {
+          state.metric = el.value;
+          // the full grid ignores "colour by": only the copy at the top (next to section 01) switches to the summary view
+          if (el.dataset.ctx === "top" && state.view === "grid") { state.view = "map"; applyView(); }
+          syncControls(); drawMap(); drawText(); updateLegend();
+        } else if (el.classList.contains("js-layer")) {
+          state.layer = +el.value;
+          syncControls(); drawText(); drawCharts();
+        }
+      });
       render();
     }
 
@@ -1152,14 +1240,8 @@
       OTHERS = (await Promise.all(M.models.map((m, i) => prompt.models[m.slug]
         ? loadSeq(m.slug, state.uid).then(d => ({ slug: m.slug, color: MODEL_COLORS[i], d })).catch(() => null) : null)))
         .filter(Boolean);
-      if (!D.m.shared) state.metric = state.metric === "shared" ? "Hn" : state.metric;
-      $("#sel-metric").querySelector('option[value="shared"]').disabled = !D.m.shared;
-      $("#sel-metric").value = state.metric;
-      const mm = M.models.find(m => m.slug === state.slug);
-      $("#sel-layer").innerHTML = `<option value="-1">mean over layers</option>` +
-        Array.from({ length: D.L }, (_, l) => `<option value="${l}">layer ${mm.layer_ids?.[l] ?? l}${mm.layer_types?.[l] === "full_attention" ? " (attn)" : ""}</option>`).join("");
+      if (!D.m.shared) state.metric = state.metric === "shared" ? "mass" : state.metric;
       if (state.layer >= D.L) state.layer = -1;
-      $("#sel-layer").value = state.layer;
       if (state.tok != null && state.tok >= D.T) state.tok = D.T - 1;   // other model's sequence may be shorter
       if (state.tok == null) state.tok = D.prompt_len < D.T ? D.prompt_len : 0;
 
@@ -1175,7 +1257,7 @@
       ${tile("mean entropy", fmt(mean(D.m.Hn), 3), "H / ln E, all tokens·layers")}
       ${tile("top-k mass", pct(mean(D.m.mass)), "belief kept by the k picks")}
       ${tile("near-ties", pct(fracBelow(D.m.margin, NEAR_TIE)), `margin < ${NEAR_TIE} · ${pct(fracBelow(D.m.margin, 1e-9))} exact ties`)}
-      ${tile("reuse t−1", pct(mean(D.m.reuse)), "same expert as previous token")}
+      ${tile("reuse t−1", pct(mean(D.m.reuse)), `chance ≈ ${pct(D.reuseChance)} · ${(mean(D.m.reuse) / D.reuseChance).toFixed(1)}× above`)}
     </div>
 
     <section class="section" id="sec-map">
@@ -1204,7 +1286,7 @@
           below the top-k cut that <i>almost</i> fired. Hover a cell for its expert, click to inspect the token.</p>
         <div class="grid-ctl">
           <span style="display:flex;gap:8px;align-items:center">token width <span class="seg seg-sm" id="g-cw"><button data-w="1">1px</button><button data-w="6">6px</button><button data-w="10">10px</button></span></span>
-          <label>expert height <input type="range" id="g-rh" min="1" max="6" step="1"><span id="g-rh-v"></span></label>
+          <span style="display:flex;gap:8px;align-items:center">expert height <span class="seg seg-sm" id="g-rh"><button data-w="1">1px</button><button data-w="2">2px</button><button data-w="4">4px</button></span></span>
           <label>row order <select id="g-order"><option value="id">expert id</option><option value="load">by load (per layer)</option></select></label>
           <label><input type="checkbox" id="g-miss" checked> near-misses</label>
           <span><span class="sw-cell" style="background:#2a78d6"></span> fired &nbsp;<span class="sw-cell" style="background:#f3b596"></span> rank k+1…${D.R}</span>
@@ -1214,10 +1296,17 @@
       </div>
     </section>
 
-    <section class="section">
+    <section class="section" id="sec-text">
       <div class="section-head"><h2><span class="num">02</span>The sequence, coloured by the router</h2>
         <span class="section-note" id="text-note"></span></div>
-      <div class="text-view" id="text"></div>
+      <div class="controls controls-static controls-inline">
+        <div class="ctl"><span class="lab">Colour by <button class="help" data-help="metric-text" aria-label="What does colour by do here?" aria-expanded="false">!</button></span><select class="js-metric" data-ctx="text"></select></div>
+        <div class="ctl"><span class="lab">Layer <button class="help" data-help="layer-text" aria-label="What does layer do here?" aria-expanded="false">!</button></span><select class="js-layer" data-ctx="text"></select></div>
+      </div>
+      <div class="text-wrap${state.textTall ? " tall" : ""}" id="text-wrap">
+        <div class="text-view" id="text"></div>
+        <button class="expand-btn" id="text-expand" title="${state.textTall ? "Collapse" : "Expand"} the text box" aria-label="Expand or collapse the text box" aria-pressed="${!!state.textTall}">↕</button>
+      </div>
     </section>
 
     <section class="section">
@@ -1248,8 +1337,10 @@
     <section class="section">
       <div class="section-head"><h2><span class="num">05</span>Expert load</h2>
         <span class="section-note" id="load-note"></span></div>
-      <p class="explain">Share of tokens routed to each expert, per layer (same token span as above). A uniform router would
-        give every cell ${pct(D.K / D.E)}; bright streaks are experts this prompt leans on.</p>
+      <p class="explain">For this prompt's sequence only, and the token span chosen in section 04 (all / prompt / generated):
+        each cell is <b>(number of tokens for which that expert was one of the ${D.K} that fired in that layer) ÷ (number of tokens in the span)</b>.
+        So each row sums to ${D.K} (= ${D.K * 100}%), and a perfectly uniform router gives every cell ${D.K}/${D.E} = ${pct(D.K / D.E)}.
+        The colour scale runs from 0 to the busiest cell (shown on the right of the legend). Bright streaks are experts this prompt leans on.</p>
       <div class="map-wrap">
         <div class="yaxis" id="yaxis2"></div>
         <div class="scroller"><canvas id="load"></canvas></div>
@@ -1268,11 +1359,20 @@
       });
       widthSeg($("#zoom"), () => state.cellW, w => { state.cellW = w; drawMap(); scrollMapTo(state.tok); });
       $("#fs-btn").onclick = toggleFullscreen;
+      $("#text-expand").onclick = () => {
+        state.textTall = !state.textTall;
+        const w = $("#text-wrap"), b = $("#text-expand");
+        w.classList.toggle("tall", state.textTall);
+        b.setAttribute("aria-pressed", state.textTall); b.title = (state.textTall ? "Collapse" : "Expand") + " the text box";
+        if (state.textTall) setTimeout(() => w.scrollIntoView({ block: "nearest", behavior: "smooth" }), 220);
+        const sel = document.querySelector("#text .tk.sel"); if (sel) setTimeout(() => sel.scrollIntoView({ block: "nearest" }), 230);
+      };
       document.querySelectorAll("#app .tile[data-help]").forEach(el => {
-        el.onmousemove = ev => tip(TILE_HELP[el.dataset.help], ev);
+        el.onmousemove = ev => { const h = TILE_HELP[el.dataset.help]; tip(typeof h === "function" ? h() : h, ev); };
         el.onmouseleave = () => tip(null);
       });
 
+      fillControls(); syncControls();
       setupGrid();
       document.querySelectorAll("#seg-view button").forEach(b => b.onclick = () => { state.view = b.dataset.view; applyView(); });
       applyView();
@@ -1312,29 +1412,65 @@ const TILE_HELP = {
       "experts": `<b>Experts</b><p>“8 of 256” means each MoE layer holds 256 small feed-forward networks (experts) and the router sends every token to only 8 of them. The layer count is how many such routing decisions each token passes through. (A shared expert that every token always uses sits on top and is not part of the choice.)</p>`,
       "mean entropy": `<b>Mean router entropy</b><p>How spread out the router's probabilities are, averaged over all tokens and layers, scaled 0–1.</p><p><b>0</b> = all probability on one expert (a confident, obvious choice). <b>1</b> = equal probability on all 256 (the router has no preference). Low values mean the top-k pick is clear-cut; high values mean many experts looked equally good.</p>`,
       "top-k mass": `<b>Top-k mass</b><p>The router scores all 256 experts, but only the best 8 are used. This is how much of the router's total probability those 8 held, on average.</p><p>100% = nothing of value was thrown away. 60% = 40% of the router's belief went to experts that were never run — that is where choosing the “right” top-k matters most.</p>`,
-      "near-ties": `<b>Near-ties</b><p>Share of routing decisions where the 8th chosen expert beat the 9th (the best rejected one) by less than ${NEAR_TIE} probability.</p><p>These are coin-flip decisions: a tiny change in the input (or numeric noise) would have swapped which expert ran.</p><p><b>Exact ties</b> (second line) are decisions where the 8th and 9th expert got exactly the same probability — the router scores in bf16, which has only ~3 significant digits, so equal scores are common and which of the tied experts runs is decided arbitrarily by the top-k kernel.</p>`,
-      "reuse t−1": `<b>Reuse from the previous token</b><p>On average, what fraction of a token's 8 experts the previous token also used, in the same layer.</p><p>High reuse = routing is “sticky” over time (good for caching experts during inference). Random routing would give about 8/256 ≈ 3%.</p>`,
+      "near-ties": () => `<b>Near-ties</b>
+        <p>For every token and every layer the router gives all ${D.E} experts a probability p (softmax over all experts,
+        before the top-${D.K} weights are renormalised). Sort them p₁ ≥ p₂ ≥ … . The <b>margin</b> is
+        p<sub>${D.K}</sub> − p<sub>${D.K + 1}</sub>: how far the last expert that fired is ahead of the best expert that did not.</p>
+        <p><b>Big number</b> = share of all (token, layer) decisions in this sequence — prompt and generated tokens, all ${D.L}
+        layers — with margin &lt; ${NEAR_TIE}. For scale: p<sub>${D.K}</sub> itself is typically only ≈ 0.01, so ${NEAR_TIE} is about a 10% relative gap.</p>
+        <p><b>Exact ties</b> = share with margin 0 in the stored (16-bit) probabilities. These are mostly true ties: the router
+        computes its scores in bf16 (~3 significant digits), so two experts often get the identical score, and which of them runs is
+        decided arbitrarily by the top-k kernel.</p>
+        <p>A near-tie means a tiny change in the input or in numerics would have swapped one of the ${D.K} experts.</p>`,
+      "reuse t−1": () => `<b>Reuse from the previous token</b>
+        <p>Let S(t, l) be the set of ${D.K} experts that fired for token t in layer l. Then
+        reuse(t, l) = |S(t, l) ∩ S(t−1, l)| / ${D.K}, i.e. the fraction of this token's experts that the previous token also used
+        <i>in the same layer</i> (their rank order does not matter).</p>
+        <p><b>Big number</b> = mean of reuse(t, l) over all tokens t ≥ 1 of this sequence (prompt and generated) and all ${D.L} layers.</p>
+        <p><b>Chance</b> (second line) = what the overlap would be if every token picked its experts independently, but with each
+        expert as popular as it really is in this sequence: Σ<sub>e</sub> q<sub>e</sub>² / ${D.K} averaged over layers, where q<sub>e</sub> is the
+        fraction of tokens that used expert e in that layer. (Ignoring popularity, uniform routing would give ${D.K}/${D.E} ≈ ${pct(D.K / D.E)}.)</p>
+        <p>Reuse well above chance = routing is “sticky” over time, which is what makes caching experts across tokens attractive.</p>`,
     };
 
-    const HELP = {
-      metric: () => `<h4>Colour by</h4>
-    <p>Chooses which number paints the <b>summary map</b> (section 01, “summary · layer rows”) and the <b>coloured text</b> (section 02). It does not change the full expert grid, which always shows which experts fired.</p>
-    <p>For every token and every layer the router produces a probability for each of the ${D ? D.E : 256} experts and keeps the top ${D ? D.K : 8}. Each option summarises that decision in one number; darker = higher.</p>
-    <dl>
-      <dt>top-k mass</dt><dd>How much of the router's probability the chosen experts hold. Light = a lot was thrown away, so the choice of top-k really matters here.</dd>
+    const METRIC_LIST = () => `<dl>
+      <dt>top-k mass</dt><dd>How much of the router's probability the ${D ? D.K : 8} chosen experts hold. Light = a lot of the router's belief went to experts that never ran.</dd>
       <dt>router entropy</dt><dd>How undecided the router is (0 = one clear winner, 1 = all experts equally likely).</dd>
       <dt>margin</dt><dd>Gap between the last chosen and the first rejected expert. Light (≈0) = near-tie; the pick could easily have gone the other way. Scaled to the sequence's 98th percentile.</dd>
       <dt>top-1 prob</dt><dd>Probability of the single favourite expert. Dark = one expert dominates.</dd>
       <dt>reuse</dt><dd>Fraction of this token's experts that the previous token also used in the same layer. Dark = routing stays the same across neighbouring tokens.</dd>
       <dt>shared gate</dt><dd>How strongly the always-on shared expert is mixed in (0–1).</dd>
-    </dl>`,
-      layer: () => `<h4>Text layer</h4>
-    <p>Controls how the tokens in section 02 (<b>the sequence, coloured by the router</b>) get their colour. It also picks the layer used by the k-sweep chart in section 04.</p>
+    </dl>`;
+    const LINKED = `<p style="color:var(--dim)">This setting appears in several places on the page; all copies are linked, so changing one changes them all.</p>`;
+    const HELP = {
+      "metric-top": () => `<h4>Colour by</h4>
+    <p>For every token and every layer the router gives each of the ${D ? D.E : 256} experts a probability and keeps the top ${D ? D.K : 8}.
+    This picks which single number summarises that decision; darker = higher.</p>
+    <p>Here it colours the <b>summary map</b> in section 01 (and the text in section 02). The full expert grid does not use it,
+    so changing it here switches section 01 to the summary view.</p>${METRIC_LIST()}${LINKED}`,
+      "metric-text": () => `<h4>Colour by</h4>
+    <p>Picks which number colours each token of the text below; darker = higher. Which layer that number comes from is set by <b>Layer</b> next to it.</p>
+    ${METRIC_LIST()}<p>It also colours the summary map in section 01.</p>${LINKED}`,
+      "layer-top": () => `<h4>Layer</h4>
+    <p>Which MoE layer's routing decisions are summarised. The model has ${D ? D.L : 40} layers, and each token gets a separate routing decision in every one of them.</p>
     <dl>
-      <dt>mean over layers</dt><dd>Average of the “colour by” value across all ${D ? D.L : 40} MoE layers — one overall number per token.</dd>
-      <dt>layer n</dt><dd>Only that layer's value. Early layers tend to route on surface form (spelling, punctuation), late layers on meaning, so switching layers can show very different patterns on the same text.</dd>
-      <dt>(attn)</dt><dd>Marks layers that use full attention; the others use linear attention (Gated DeltaNet). Every layer has an MoE block regardless.</dd>
-    </dl>`,
+      <dt>all layers (mean)</dt><dd>Average over all ${D ? D.L : 40} layers — one overall value per token.</dd>
+      <dt>layer n</dt><dd>Only that layer. “full attn” marks layers with full softmax attention; the others use linear attention (Gated DeltaNet). Every layer has an MoE block.</dd>
+    </dl>
+    <p>Used by the coloured text (section 02) and the k-curve (section 04). Section 01 always shows all layers, and the other section 04 charts are already per-layer.</p>${LINKED}`,
+      "layer-text": () => `<h4>Layer</h4>
+    <p>Which layer's value (of <b>Colour by</b>) colours each token below.</p>
+    <dl>
+      <dt>all layers (mean)</dt><dd>The value averaged over all ${D ? D.L : 40} MoE layers — one overall colour per token.</dd>
+      <dt>layer n</dt><dd>Only that layer's value. Early layers tend to route on surface form (spelling, punctuation), later ones on meaning, so the same text can look very different per layer.</dd>
+    </dl>${LINKED}`,
+      "layer-k": () => `<h4>Layer</h4>
+    <p>Which routing decisions the <b>top-k curve</b> (“Router probability kept by the top-k”) averages over.</p>
+    <dl>
+      <dt>all layers (mean)</dt><dd>Every token × every layer decision counts once.</dd>
+      <dt>layer n</dt><dd>Only that layer's decisions — shows whether the router is sharper (curve rises fast) or flatter in that layer.</dd>
+    </dl>
+    <p>It only affects this chart; the other three charts in section 04 already show every layer on their x-axis.</p>${LINKED}`,
     };
     let openPop = null;
     function closePop() { if (openPop) { openPop.pop.remove(); openPop.btn.setAttribute("aria-expanded", "false"); openPop = null; } }
@@ -1352,6 +1488,19 @@ const TILE_HELP = {
     });
     document.addEventListener("keydown", e => { if (e.key === "Escape") closePop(); });
     addEventListener("scroll", closePop, { passive: true });
+
+    function fillControls() {
+      const mm = state.manifest.models.find(m => m.slug === state.slug);
+      const mOpts = METRICS.map(m => `<option value="${m.key}"${m.key === "shared" && !D.m.shared ? " disabled" : ""}>${m.label}</option>`).join("");
+      const lOpts = `<option value="-1">all layers (mean)</option>` + Array.from({ length: D.L }, (_, l) =>
+        `<option value="${l}">layer ${mm.layer_ids?.[l] ?? l}${mm.layer_types?.[l] === "full_attention" ? " · full attn" : ""}</option>`).join("");
+      document.querySelectorAll(".js-metric").forEach(el => el.innerHTML = mOpts);
+      document.querySelectorAll(".js-layer").forEach(el => el.innerHTML = lOpts);
+    }
+    function syncControls() {
+      document.querySelectorAll(".js-metric").forEach(el => el.value = state.metric);
+      document.querySelectorAll(".js-layer").forEach(el => el.value = state.layer);
+    }
 
     function applyView() {
       document.querySelectorAll("#seg-view button").forEach(b => b.setAttribute("aria-pressed", b.dataset.view === state.view));
@@ -1470,12 +1619,10 @@ const TILE_HELP = {
       }
       G = { order, pos };
       const cw = $("#g-cw"), rh = $("#g-rh"), od = $("#g-order"), ms = $("#g-miss");
-      rh.value = state.grh; od.value = state.gorder; ms.checked = state.gmiss;
-      const lab = () => { $("#g-rh-v").textContent = state.grh + "px"; };
-      lab();
-      const re = keepCenter => { lab(); sizeGrid(keepCenter); drawGrid(); };
+      od.value = state.gorder; ms.checked = state.gmiss;
+      const re = keepCenter => { sizeGrid(keepCenter); drawGrid(); };
       widthSeg(cw, () => state.gcw, w => { state.gcw = w; re(true); });
-      rh.oninput = () => { state.grh = +rh.value; re(true); };
+      widthSeg(rh, () => state.grh, h => { state.grh = h; re(true); });
       od.onchange = () => { state.gorder = od.value; setupGrid(); sizeGrid(); drawGrid(); };
       ms.onchange = () => { state.gmiss = ms.checked; drawGrid(); };
       const vp = $("#grid-vp"), c = $("#grid");
@@ -1602,7 +1749,7 @@ const TILE_HELP = {
         parts.push(`<span class="tk${t === state.tok ? " sel" : ""}" data-t="${t}" style="background:${rgb(col)}${dark ? ";color:#fff" : ""}">${esc(d.tokens[t])}</span>`);
       }
       const el = $("#text"); el.innerHTML = parts.join("");
-      $("#text-note").textContent = `${metricOf(state.metric).short} · ${lay >= 0 ? "layer " + lay : "mean over layers"} · click a token`;
+      $("#text-note").textContent = `${metricOf(state.metric).short} · ${lay >= 0 ? "layer " + lay : "all layers (mean)"} · click a token`;
       el.onclick = e => { const s = e.target.closest(".tk"); if (s) selectTok(+s.dataset.t, true); };
       el.onmousemove = e => {
         const s = e.target.closest(".tk"); if (!s) return tip(null);
@@ -1639,7 +1786,7 @@ const TILE_HELP = {
     function avgAt(arr, d, t) { let s = 0; for (let l = 0; l < d.L; l++) s += arr[t * d.L + l]; return s / d.L; }
 
     /* ============================================================ 04 charts (SVG) */
-    function lineChart(el, { title, sub, series, xLabels, yMin = 0, yMax = 1, yFmt = v => v.toFixed(2), marker = null, xName = "layer" }) {
+    function lineChart(el, { title, sub, series, xLabels, yMin = 0, yMax = 1, yFmt = v => v.toFixed(2), marker = null, xName = "layer", headExtra = "" }) {
       const W = 520, H = 200, m = { l: 40, r: 12, t: 10, b: 26 }, iw = W - m.l - m.r, ih = H - m.t - m.b;
       const n = xLabels.length, X = i => m.l + (n > 1 ? i / (n - 1) : .5) * iw, Y = v => m.t + ih - (v - yMin) / (yMax - yMin) * ih;
       let s = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(title)}"><g class="axis">`;
@@ -1659,7 +1806,7 @@ const TILE_HELP = {
       s += `<line class="xh" x1="0" x2="0" y1="${m.t}" y2="${m.t + ih}" stroke="#18181b" stroke-width="1" style="display:none"/>`;
       for (const se of series) s += `<circle class="dot" r="4" fill="${se.color}" stroke="#fff" stroke-width="2" style="display:none"/>`;
       s += `<rect x="${m.l}" y="${m.t}" width="${iw}" height="${ih}" fill="transparent"/></svg>`;
-      el.innerHTML = `<h3>${esc(title)}</h3><div class="sub">${sub}</div>${s}`;
+      el.innerHTML = `<div class="chart-head"><h3>${esc(title)}</h3>${headExtra}</div><div class="sub">${sub}</div>${s}`;
       const svg = el.querySelector("svg"), xh = svg.querySelector(".xh"), dots = svg.querySelectorAll(".dot");
       svg.onmousemove = ev => {
         const r = svg.getBoundingClientRect(), px = (ev.clientX - r.left) / r.width * W;
@@ -1701,10 +1848,13 @@ const TILE_HELP = {
       ks.forEach(s => s.values = s.values.slice(0, Rm));
       [a, b] = rng(ks, .02);
       lineChart($("#c-ksweep"), {
-        title: "How much would a different k keep?", sub: `mean cumulative router mass captured by the top-k, k = 1…${Rm}  (${lay >= 0 ? "layer " + lay : "all layers"})`,
+        title: "Router probability kept by the top-k, for k = 1…" + Rm, sub: `Σ of the k largest router probabilities (softmax over all ${D.E} experts), averaged over tokens (${lay >= 0 ? "layer " + lay : "all layers"}). The model uses k = ${D.K} (dashed line); left of it = fewer experts, right of it = more.`,
         series: ks, xLabels: Array.from({ length: Rm }, (_, i) => i + 1), yMin: a, yMax: Math.min(1, b), yFmt: v => (v * 100).toFixed(0) + "%",
-        marker: { i: D.K - 1, label: `k = ${D.K} used` }, xName: "k ="
+        marker: { i: D.K - 1, label: `k = ${D.K} used` }, xName: "k =",
+        headExtra: `<div class="ctl"><span class="lab">Layer <button class="help" data-help="layer-k" aria-label="What does layer do here?" aria-expanded="false">!</button></span><select class="js-layer" data-ctx="k"></select></div>`
       });
+      // the chart is rebuilt on every redraw, so fill its Layer picker again
+      fillControls(); syncControls();
     }
 
     /* ============================================================ 05 expert load */
