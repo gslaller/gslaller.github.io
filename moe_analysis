@@ -900,6 +900,8 @@
     "use strict";
     /* ============================================================ data loading */
     // ?data=<dir> wins; otherwise web/data/ (container output) then ../data/web/ (pulled by run.sh)
+    // Published data (Cloudflare R2). ?data=<url> overrides; on localhost the local folders are tried first.
+    const DATA_REMOTE = "https://osends.com/moe-analysis/";
     const DATA_ARG = new URLSearchParams(location.search).get("data");
     let DATA = (DATA_ARG || "data/").replace(/\/?$/, "/");
     const state = {
@@ -1093,15 +1095,18 @@
 
     /* ============================================================ controls */
     async function init() {
-      const cands = DATA_ARG ? [DATA] : ["data/", "../data/web/"];
+      const isLocal = ["localhost", "127.0.0.1", "[::1]", ""].includes(location.hostname);
+      const cands = DATA_ARG ? [DATA]
+        : isLocal ? ["data/", "../data/web/", DATA_REMOTE]
+        : [DATA_REMOTE, "data/"];
       for (const c of cands) {
         try { state.manifest = await fetch(c + "manifest.json").then(r => { if (!r.ok) throw 0; return r.json(); }); DATA = c; break; }
         catch (e) { /* try next */ }
       }
       try { if (!state.manifest) throw 0; }
       catch (e) {
-        $("#app").innerHTML = `<p class="empty">Could not load <code>data/manifest.json</code>. Run the pipeline
-      (see README) and serve this folder over HTTP, e.g. <code>python3 -m http.server -d web 8000</code>.</p>`;
+        $("#app").innerHTML = `<p class="empty">Could not load the routing data (tried ${cands.map(c => `<code>${esc(c)}manifest.json</code>`).join(", ")}).
+          If the data is on R2, check that the bucket allows cross-origin GET requests from this site (CORS).</p>`;
         return;
       }
       const M = state.manifest;
