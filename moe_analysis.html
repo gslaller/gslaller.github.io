@@ -1174,7 +1174,7 @@
       ${tile("experts", `${D.K} of ${D.E}`, `${D.L} MoE layers`)}
       ${tile("mean entropy", fmt(mean(D.m.Hn), 3), "H / ln E, all tokens·layers")}
       ${tile("top-k mass", pct(mean(D.m.mass)), "belief kept by the k picks")}
-      ${tile("near-ties", pct(fracBelow(D.m.margin, 0.01)), "margin p_k − p_k+1 < 0.01")}
+      ${tile("near-ties", pct(fracBelow(D.m.margin, NEAR_TIE)), `margin < ${NEAR_TIE} · ${pct(fracBelow(D.m.margin, 1e-9))} exact ties`)}
       ${tile("reuse t−1", pct(mean(D.m.reuse)), "same expert as previous token")}
     </div>
 
@@ -1306,12 +1306,13 @@
       if (state.view === "grid") { sizeGrid(true); drawGrid(); } else drawMap();
     });
 
-    const TILE_HELP = {
+    const NEAR_TIE = 0.001;   // margin p_k − p_{k+1} below this counts as a near-tie
+const TILE_HELP = {
       "tokens": `<b>Tokens</b><p>Length of the sequence that was replayed through the model: the chat-formatted prompt plus everything the model generated (its hidden &lt;think&gt; reasoning and the visible answer). Every token gets its own routing decision in every layer.</p>`,
       "experts": `<b>Experts</b><p>“8 of 256” means each MoE layer holds 256 small feed-forward networks (experts) and the router sends every token to only 8 of them. The layer count is how many such routing decisions each token passes through. (A shared expert that every token always uses sits on top and is not part of the choice.)</p>`,
       "mean entropy": `<b>Mean router entropy</b><p>How spread out the router's probabilities are, averaged over all tokens and layers, scaled 0–1.</p><p><b>0</b> = all probability on one expert (a confident, obvious choice). <b>1</b> = equal probability on all 256 (the router has no preference). Low values mean the top-k pick is clear-cut; high values mean many experts looked equally good.</p>`,
       "top-k mass": `<b>Top-k mass</b><p>The router scores all 256 experts, but only the best 8 are used. This is how much of the router's total probability those 8 held, on average.</p><p>100% = nothing of value was thrown away. 60% = 40% of the router's belief went to experts that were never run — that is where choosing the “right” top-k matters most.</p>`,
-      "near-ties": `<b>Near-ties</b><p>Share of routing decisions where the 8th chosen expert beat the 9th (the best rejected one) by less than 0.01 probability.</p><p>These are coin-flip decisions: a tiny change in the input (or numeric noise) would have swapped which expert ran.</p>`,
+      "near-ties": `<b>Near-ties</b><p>Share of routing decisions where the 8th chosen expert beat the 9th (the best rejected one) by less than ${NEAR_TIE} probability.</p><p>These are coin-flip decisions: a tiny change in the input (or numeric noise) would have swapped which expert ran.</p><p><b>Exact ties</b> (second line) are decisions where the 8th and 9th expert got exactly the same probability — the router scores in bf16, which has only ~3 significant digits, so equal scores are common and which of the tied experts runs is decided arbitrarily by the top-k kernel.</p>`,
       "reuse t−1": `<b>Reuse from the previous token</b><p>On average, what fraction of a token's 8 experts the previous token also used, in the same layer.</p><p>High reuse = routing is “sticky” over time (good for caching experts during inference). Random routing would give about 8/256 ≈ 3%.</p>`,
     };
 
