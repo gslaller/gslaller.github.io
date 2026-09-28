@@ -231,6 +231,10 @@
       font-size:11.5px;
     }
 
+    footer .to-right{
+      margin-left:auto;
+    }
+
     footer .mark{
       color:var(--green);
       font-weight:700;
@@ -336,23 +340,24 @@
           Replace the date, type, title, summary, tags, and href.
         -->
 
-        <!--
-
         <article class="entry">
           <div class="entry-meta">
-            <span class="entry-type">Experiment</span>
-            <time datetime="2026-08-28">2026-08-28</time>
+            <span class="entry-type">Visualization</span>
+            <time datetime="2026-09-28">2026-09-28</time>
           </div>
 
           <div>
-            <h3><a href="articles/temporal-locality.html">Temporal Locality in Sparse Expert Routing</a></h3>
+            <h3><a href="moe_analysis.html">MoE Analysis: which experts fire, and how sure is the router?</a></h3>
             <p>
-              A baseline study of how often nearby tokens reuse the same experts in a
-              sparse mixture-of-experts model, and whether that locality is stable across
-              layers, prompts, and decoding regimes.
+              The MT-Bench prompts answered by Qwen3.5 and Qwen3.6 (35B-A3B), with every MoE routing decision
+              captured: which of the 256 experts fired for each token in each of the 40 layers, how peaked the
+              router's choice was, and how much probability sat just outside the top-8.
             </p>
           </div>
         </article>
+
+        <!--
+
 
         <article class="entry">
           <div class="entry-meta">
@@ -423,9 +428,7 @@
       </div>
     </section>
 <footer>
-      <div><span class="mark">■</span> Gurpreet Singh Laller</div>
-      <div><a href="https://twitter.com/gslaller">@gslaller</a></div>
-      <div><a href="mailto:gslaller@outlook.com">mail</a></div>
+      <div class="to-right"><a href="https://twitter.com/gslaller">@gslaller</a></div>
     </footer>
 
   </main>
