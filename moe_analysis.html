@@ -6,9 +6,26 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <link rel="icon"
     href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>📎</text></svg>">
-  <meta name="description"
-    content="Which experts fire, and how sure is the router? Token-by-layer routing maps for Qwen3.5 / Qwen3.6 MoE models.">
-  <title>MoE Routing Atlas</title>
+  <meta name="description" content="MT-Bench prompts answered by Qwen3.5 and Qwen3.6 (35B-A3B), with every MoE routing decision captured: which of the 256 experts fire for each token in each of the 40 layers, and how sure the router is.">
+  <meta name="author" content="Gurpreet Singh Laller">
+  <title>MoE Analysis — which experts fire, and how sure is the router?</title>
+
+  <!-- Open Graph / link previews (Hacker News, Slack, X, LinkedIn, …). og:image must be an absolute URL. -->
+  <meta property="og:type" content="article">
+  <meta property="og:site_name" content="G.S. Laller / Notes">
+  <meta property="og:title" content="MoE Analysis — which experts fire, and how sure is the router?">
+  <meta property="og:description" content="MT-Bench prompts answered by Qwen3.5 and Qwen3.6 (35B-A3B), with every MoE routing decision captured: which of the 256 experts fire for each token in each of the 40 layers, and how sure the router is.">
+  <meta property="og:image" content="https://osends.com/moe-analysis/og-moe-analysis.png">
+  <meta property="og:image:type" content="image/png">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:image:alt" content="Crop of the expert grid: 256 experts of two layers (rows) over ~500 tokens (columns); blue = experts that fired, orange = near-misses.">
+  <!-- <meta property="og:url" content="https://YOUR-DOMAIN/moe_analysis.html"> -->
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:site" content="@gslaller">
+  <meta name="twitter:title" content="MoE Analysis — which experts fire, and how sure is the router?">
+  <meta name="twitter:description" content="MT-Bench prompts answered by Qwen3.5 and Qwen3.6 (35B-A3B), with every MoE routing decision captured: which of the 256 experts fire for each token in each of the 40 layers, and how sure the router is.">
+  <meta name="twitter:image" content="https://osends.com/moe-analysis/og-moe-analysis.png">
   <style>
     @font-face {
       font-family: 'JetBrains Mono';
