@@ -47,7 +47,8 @@
     }
 
     html {
-      scroll-behavior: smooth
+      scroll-behavior: smooth;
+      scrollbar-gutter: stable   /* reserve the scrollbar space on both pages, so the column doesn't shift */
     }
 
     body {
@@ -185,6 +186,7 @@
     }
 
     .ctl {
+      max-width: 100%;
       display: flex;
       flex-direction: column;
       gap: 3px;
@@ -208,7 +210,7 @@
       background: #fff;
       padding: 5px 8px;
       border-radius: 4px;
-      max-width: 440px
+      max-width: min(440px, 100%)
     }
 
     .seg {
@@ -738,7 +740,7 @@
     /* ---------- charts ---------- */
     .charts {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(420px, 1fr));
+      grid-template-columns: repeat(auto-fit, minmax(min(420px, 100%), 1fr));
       gap: 22px 28px
     }
 
@@ -974,7 +976,7 @@
     let DATA = (DATA_ARG || "data/").replace(/\/?$/, "/");
     const state = {
       manifest: null, slug: null, uid: null, metric: "mass", layer: -1, tok: null, cellW: 6, span: "all",
-      view: "grid", gcw: 6, grh: 2, gorder: "id", gmiss: true
+      view: "grid", gcw: 1, grh: 1, gorder: "id", gmiss: true
     };
     const cache = new Map();   // "slug/uid" -> decoded sequence
 
@@ -1697,7 +1699,7 @@ const TILE_HELP = {
       const tickEvery = [10, 20, 50, 100, 200, 500, 1000].find(k => k * cw >= 70) || 2000;
       for (let t = Math.ceil(t0 / tickEvery) * tickEvery; t < t1; t += tickEvery) if (X(t) > GX) x.fillText(String(t), X(t) + 2, 8);
       x.fillStyle = "#15803d";
-      for (const s of d.segments) { const xs = Math.max(GX, X(s.a)); if (X(s.b) > GX && xs < W) x.fillText(s.name.toUpperCase(), xs + 2, GY - 7 > 8 ? GY - 7 : 8); }
+      for (const s of d.segments) { const xs = Math.max(GX, X(s.a)); if (X(s.b) - xs > s.name.length * 6.5 + 6 && xs < W) x.fillText(s.name.toUpperCase(), xs + 2, GY - 7 > 8 ? GY - 7 : 8); }
       const mm = state.manifest.models.find(m => m.slug === state.slug);
       for (let l = l0; l < l1; l++) {
         const y = Y(l); if (y + d.E * rh < GY) continue;
