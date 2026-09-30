@@ -347,9 +347,7 @@
           <div>
             <h3><a href="moe_analysis.html">MoE Analysis: which experts fire, and how sure is the router?</a></h3>
             <p>
-              The MT-Bench prompts answered by Qwen3.5 and Qwen3.6 (35B-A3B), with every MoE routing decision
-              captured: which of the 256 experts fired for each token in each of the 40 layers, how peaked the
-              router's choice was, and how much probability sat just outside the top-8.
+              We took the MT-Bench prompts (first turn only), ran inference on each of them with two Mixture-of-Experts models, and captured the statistics of every MoE layer: for each token, which experts the router picked, and how confident that choice was.
             </p>
           </div>
         </article>
